@@ -539,7 +539,14 @@ function renderCustInfo() {
 
 // ── POS Actions ───────────────────────────────────────────────────────────────
 function onSearch(v) { STATE.search = v; renderProductGrid(); }
-function setCat(c) { STATE.cat = c; renderProductGrid(); }
+function setCat(c) {
+  STATE.cat = c;
+  // Update active chip instantly without full re-render
+  document.querySelectorAll('.cat-chip').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim() === c);
+  });
+  renderProductGrid();
+}
 function setSize(s) {
   STATE.selectedSize = s;
   document.querySelectorAll('.sz-btn[data-size]').forEach(b => {
