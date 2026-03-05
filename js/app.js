@@ -164,6 +164,40 @@ function renderApp() {
       </div>
     </div>
     <div id="main"></div>
+    <nav id="bottom-nav">
+      <div class="bnav-inner">
+        <button class="bnav-btn ${STATE.view==='pos'?'active':''}" onclick="setView('pos')">
+          <span class="bnav-icon">🛒</span><span class="bnav-label">POS</span>
+        </button>
+        <button class="bnav-btn ${STATE.view==='kitchen'?'active':''}" onclick="setView('kitchen')">
+          <span class="bnav-icon">👨‍🍳</span><span class="bnav-label">Kitchen</span>
+        </button>
+        <button class="bnav-btn ${STATE.view==='orders'?'active':''}" onclick="setView('orders')">
+          <span class="bnav-icon">📋</span><span class="bnav-label">Orders</span>
+        </button>
+        <button class="bnav-btn ${STATE.view==='inventory'?'active':''}" onclick="setView('inventory')">
+          <span class="bnav-icon">📦</span><span class="bnav-label">Inventory${isProtected('inventory')&&!STATE.pinUnlocked?' 🔒':''}</span>
+        </button>
+        <button class="bnav-btn ${STATE.view==='products'?'active':''}" onclick="setView('products')">
+          <span class="bnav-icon">🍹</span><span class="bnav-label">Products${isProtected('products')&&!STATE.pinUnlocked?' 🔒':''}</span>
+        </button>
+        <button class="bnav-btn ${STATE.view==='customers'?'active':''}" onclick="setView('customers')">
+          <span class="bnav-icon">👥</span><span class="bnav-label">Customers${isProtected('customers')&&!STATE.pinUnlocked?' 🔒':''}</span>
+        </button>
+        <button class="bnav-btn ${STATE.view==='summary'?'active':''}" onclick="setView('summary')">
+          <span class="bnav-icon">📊</span><span class="bnav-label">Summary${isProtected('summary')&&!STATE.pinUnlocked?' 🔒':''}</span>
+        </button>
+        <button class="bnav-btn ${STATE.view==='settings'?'active':''}" onclick="setView('settings')">
+          <span class="bnav-icon">${STATE.settings.pinEnabled&&STATE.settings.adminPin?(STATE.pinUnlocked?'🔓':'🔒'):'⚙️'}</span>
+          <span class="bnav-label">Settings</span>
+        </button>
+        ${STATE.settings.pinEnabled && STATE.settings.adminPin ? `
+        <button class="bnav-btn" onclick="lockApp()" style="color:${STATE.pinUnlocked?'var(--red)':'var(--muted)'}">
+          <span class="bnav-icon">${STATE.pinUnlocked?'🔓':'🔒'}</span>
+          <span class="bnav-label">${STATE.pinUnlocked?'Lock':'Locked'}</span>
+        </button>` : ''}
+      </div>
+    </nav>
   `;
   renderView();
 }
