@@ -2,52 +2,101 @@
   "id": "com.amyezing.brewpos",
   "name": "BrewPOS Café",
   "short_name": "BrewPOS",
-  "description": "Point of Sale system for bubble tea & café",
+  "description": "Point of Sale system for bubble tea & café — manage orders, kitchen display, inventory, and customers all in one app.",
   "start_url": "/BrewPOS/",
   "scope": "/BrewPOS/",
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "any",
-  "background_color": "#f5a623",
-  "theme_color": "#f5a623",
+  "background_color": "#0d0d14",
+  "theme_color": "#0d0d14",
   "lang": "en",
   "dir": "ltr",
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
   "icons": [
-    { "src": "icons/icon-48.png",  "sizes": "48x48",   "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-72.png",  "sizes": "72x72",   "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-96.png",  "sizes": "96x96",   "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "screenshots": [
     {
       "src": "screenshots/screen-pos.png",
       "sizes": "1190x667",
       "type": "image/png",
-      "platform": "wide",
+      "form_factor": "wide",
       "label": "POS Screen – Take orders quickly"
     },
     {
       "src": "screenshots/screen-kitchen.png",
       "sizes": "1179x669",
       "type": "image/png",
-      "platform": "wide",
+      "form_factor": "wide",
       "label": "Kitchen Display – Track order queue"
     },
     {
       "src": "screenshots/screen-orders.png",
       "sizes": "1188x668",
       "type": "image/png",
-      "platform": "wide",
+      "form_factor": "wide",
       "label": "Orders History – View all transactions"
     },
     {
       "src": "screenshots/screen-pos-mobile.png",
       "sizes": "540x720",
       "type": "image/png",
-      "platform": "narrow",
+      "form_factor": "narrow",
       "label": "POS on mobile"
     }
   ],
@@ -57,23 +106,50 @@
       "short_name": "POS",
       "description": "Open the POS to take a new order",
       "url": "/BrewPOS/?view=pos",
-      "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Kitchen Display",
       "short_name": "Kitchen",
       "description": "View the kitchen order queue",
       "url": "/BrewPOS/?view=kitchen",
-      "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Orders History",
       "short_name": "Orders",
       "description": "View all past orders",
       "url": "/BrewPOS/?view=orders",
-      "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
-  "categories": ["business", "food"],
+  "share_target": {
+    "action": "/BrewPOS/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "categories": [
+    "business",
+    "food"
+  ],
   "prefer_related_applications": false
 }
