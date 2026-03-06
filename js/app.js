@@ -462,11 +462,13 @@ function renderCartFooter() {
     payExtra = `
       <div class="cash-row">
         <span class="cash-lbl">Cash In ₱</span>
-        <input class="cash-inp" id="cash-in" type="number" value="${STATE.cashIn}" placeholder="0.00"
-          oninput="STATE.cashIn=this.value;renderCartFooter()"/>
+        <input class="cash-inp" id="cash-in" type="number" inputmode="decimal"
+          value="${STATE.cashIn}" placeholder="0.00"
+          onchange="STATE.cashIn=this.value;updateChange()"
+          onblur="STATE.cashIn=this.value;updateChange()"/>
       </div>
       ${total > 0 ? `<div class="quick-cash">${qcAmts.map(v => `<button class="qc-btn" onclick="setCashIn(${v})">${v>=1000?'₱'+(v/1000)+'k':'₱'+v}</button>`).join('')}</div>` : ''}
-      ${STATE.cashIn ? `<div class="change-row ${change>=0?'change-pos':'change-neg'}">${change>=0?'Change: '+peso(change):'Short: '+peso(-change)}</div>` : ''}
+      <div id="change-display" class="change-row ${change>=0?'change-pos':'change-neg'}">${STATE.cashIn?(change>=0?'Change: '+peso(change):'Short: '+peso(-change)):''}</div>
     `;
   } else if (STATE.payMethod === 'gcash' || STATE.payMethod === 'maya') {
     payExtra = `
@@ -558,7 +560,31 @@ function setSize(s) {
   renderCartFooter();
 }
 function setPayMethod(m) { STATE.payMethod = m; STATE.cashIn = ''; renderCartFooter(); }
-function setCashIn(v) { STATE.cashIn = String(v); renderCartFooter(); }
+function setCashIn(v) {
+  STATE.cashIn = String(v);
+  const inp = document.getElementById('cash-in');
+  if (inp) inp.value = v;
+  updateChange();
+}
+function updateChange() {
+  const inp = document.getElementById('cash-in');
+  if (inp) STATE.cashIn = inp.value;
+  const total = cartSubtotal() * (1 - STATE.discount/100);
+  const cashInNum = Number(STATE.cashIn) || 0;
+  const change = cashInNum - total;
+  const el = document.getElementById('change-display');
+  if (el) {
+    el.textContent = STATE.cashIn ? (change>=0 ? 'Change: '+peso(change) : 'Short: '+peso(-change)) : '';
+    el.className = 'change-row ' + (change>=0?'change-pos':'change-neg');
+  }
+  // Update checkout button
+  const btn = document.querySelector('.checkout-btn');
+  if (btn) {
+    const canCheckout = STATE.cart.length > 0 &&
+      (STATE.payMethod !== 'cash' || !STATE.cashIn || cashInNum >= total);
+    btn.disabled = !canCheckout;
+  }
+}
 function clearCart() { STATE.cart = []; STATE.discount = 0; STATE.cashIn = ''; renderCartItems(); renderCartFooter(); }
 
 function addToCart(prodId) {
@@ -1000,15 +1026,15 @@ function renderInventory(container) {
               <span class="inv-emoji">${getIngEmoji(ing.cat)}</span>
               <div style="flex:1">
                 <div class="inv-name">${ing.name}</div>
-                <div style="font-size:10px;color:var(--muted)">${ing.cat} · ${ing.supplier||''}</div>
+                <div style="font-size:10px;color:var(--muted)">${ing.cat}${ing.supplier?' · '+ing.supplier:''}</div>
               </div>
               <span class="inv-status ${statusCls}">${statusLabel}</span>
             </div>
-            <div class="inv-stat-row"><span class="inv-stat-lbl">Stock</span><span class="inv-stat-val">${ing.stock.toLocaleString()} ${ing.unit}</span></div>
-            <div class="inv-stat-row"><span class="inv-stat-lbl">Reorder at</span><span class="inv-stat-val">${ing.reorder} ${ing.unit}</span></div>
-            <div class="inv-stat-row"><span class="inv-stat-lbl">Cost/unit</span><span class="inv-stat-val">${peso(ing.costPer)}</span></div>
-            <div class="inv-stat-row"><span class="inv-stat-lbl">Total value</span><span class="inv-stat-val" style="color:var(--accent)">${peso(ing.stock*ing.costPer)}</span></div>
-            <div class="inv-prog"><div class="inv-prog-fill ${progCls}" style="width:${pct}%"></div></div>
+            <div class="inv-prog" style="margin-bottom:8px;"><div class="inv-prog-fill ${progCls}" style="width:${pct}%"></div></div>
+            <div class="inv-stat-row"><span class="inv-stat-lbl">📦 Stock</span><span class="inv-stat-val" style="font-size:14px;color:var(--text)">${ing.stock.toLocaleString()} ${ing.unit}</span></div>
+            <div class="inv-stat-row"><span class="inv-stat-lbl">🔔 Reorder at</span><span class="inv-stat-val">${ing.reorder} ${ing.unit}</span></div>
+            <div class="inv-stat-row"><span class="inv-stat-lbl">💸 Cost/unit</span><span class="inv-stat-val">${peso(ing.costPer)}</span></div>
+            <div class="inv-stat-row"><span class="inv-stat-lbl">💰 Total value</span><span class="inv-stat-val" style="color:var(--accent)">${peso(ing.stock*ing.costPer)}</span></div>
             <div style="display:flex;gap:6px;margin-top:10px;">
               <button class="inv-adjust-btn" style="flex:2" onclick="showAdjustModal(${ing.id})">📦 Adjust Stock</button>
               <button class="inv-adjust-btn" style="flex:1;border-color:var(--blue);color:var(--blue)" onclick="showEditIngredientModal(${ing.id})">✏️ Edit</button>
@@ -1030,22 +1056,27 @@ function showAdjustModal(ingId) {
   if (!ing) return;
   showModal(`
     <div class="modal-title">📦 Adjust Stock — ${ing.name}</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Current: <strong style="color:var(--text)">${ing.stock} ${ing.unit}</strong></div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Current stock: <strong style="color:var(--accent);font-size:16px">${ing.stock} ${ing.unit}</strong></div>
     <div class="modal-label">Action</div>
     <select class="modal-select" id="adj-action">
-      <option value="add">Add Stock (Restock)</option>
-      <option value="set">Set Exact Amount</option>
-      <option value="remove">Remove / Waste</option>
+      <option value="add">➕ Add Stock (Restock)</option>
+      <option value="set">📌 Set Exact Amount</option>
+      <option value="remove">➖ Remove / Waste</option>
     </select>
     <div class="modal-label">Amount (${ing.unit})</div>
-    <input class="modal-inp" id="adj-amount" type="number" min="0" placeholder="0"/>
+    <input class="modal-inp" id="adj-amount" type="number" inputmode="decimal"
+      min="0" placeholder="Enter amount..." autocomplete="off"
+      style="font-size:18px;padding:12px;text-align:center;"
+      onclick="this.select()"/>
     <div class="modal-label">Note (optional)</div>
-    <input class="modal-inp" id="adj-note" placeholder="e.g. Restocked from supplier"/>
+    <input class="modal-inp" id="adj-note" placeholder="e.g. Restocked from supplier" autocomplete="off"/>
     <div class="modal-btns">
       <button class="modal-btn secondary" onclick="closeModal()">Cancel</button>
-      <button class="modal-btn primary" onclick="doAdjust(${ingId})">Save</button>
+      <button class="modal-btn primary" onclick="doAdjust(${ingId})">✓ Save</button>
     </div>
   `);
+  // Focus after modal renders
+  setTimeout(() => { const el = document.getElementById('adj-amount'); if(el) el.focus(); }, 100);
 }
 
 async function doAdjust(ingId) {
