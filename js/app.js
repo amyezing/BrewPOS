@@ -76,6 +76,83 @@ function closeModal() {
   STATE.modal = null;
 }
 
+function showQRModal(label, data, name, amount, qrImageKey) {
+  // Check if user has uploaded a QR image
+  const qrImg = qrImageKey === 'gcash' ? STATE.settings.gcashQR :
+                qrImageKey === 'bank'  ? STATE.settings.bankQR  : null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'qr-overlay';
+  overlay.innerHTML = `
+    <div id="qr-modal">
+      <div id="qr-header">
+        <div id="qr-title">${label}</div>
+        <div id="qr-amount">${peso(amount)}</div>
+      </div>
+      <div id="qr-code-wrap">
+        ${qrImg
+          ? `<img src="${qrImg}" id="qr-img" style="width:240px;height:240px;object-fit:contain;border-radius:8px;"/>`
+          : `<div id="qr-code"></div>`}
+      </div>
+      <div id="qr-info">
+        <div id="qr-num">${data}</div>
+        <div id="qr-name">${name}</div>
+      </div>
+      <div id="qr-hint">📱 Ask customer to scan</div>
+      <button id="qr-close-btn" onclick="closeQRModal()">✕ Close</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeQRModal();
+  });
+
+  // Only generate QR code if no image uploaded
+  if (!qrImg) {
+    setTimeout(() => {
+      const el = document.getElementById('qr-code');
+      if (el && window.QRCode) {
+        new QRCode(el, {
+          text: data,
+          width: 220,
+          height: 220,
+          colorDark: '#000000',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      }
+    }, 50);
+  }
+}
+
+function closeQRModal() {
+  const el = document.getElementById('qr-overlay');
+  if (el) el.remove();
+}
+
+function uploadQR(type, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) return toast('Image too large (max 2MB)', 'error');
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const key = type === 'gcash' ? 'gcashQR' : 'bankQR';
+    STATE.settings[key] = e.target.result;
+    await DB.setSetting(key, e.target.result);
+    toast('QR image saved! ✓', 'success');
+    renderView(); // refresh settings view
+  };
+  reader.readAsDataURL(file);
+}
+
+async function removeQR(type) {
+  const key = type === 'gcash' ? 'gcashQR' : 'bankQR';
+  STATE.settings[key] = '';
+  await DB.setSetting(key, '');
+  toast('QR removed', 'success');
+  renderView();
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   try {
@@ -368,6 +445,9 @@ function renderPOS(container) {
               <span class="cash-lbl">Cash In ₱</span>
               <input class="cash-inp" id="cash-in" type="tel" inputmode="decimal"
                 placeholder="0.00" autocomplete="off"/>
+              <button id="cash-clear-btn" onclick="clearCashIn()" title="Clear"
+                style="display:none;background:none;border:none;color:var(--muted);
+                font-size:16px;padding:4px 6px;cursor:pointer;flex-shrink:0;">✕</button>
             </div>
             <div id="quick-cash-btns" class="quick-cash"></div>
             <div id="change-display" class="change-row"></div>
@@ -384,12 +464,23 @@ function renderPOS(container) {
   renderCartItems();
   renderCartFooter();
   renderCustInfo();
-  // Attach cash input listener ONCE — never re-attached
+  // Attach cash input listeners ONCE — never re-attached
   const cashEl = document.getElementById('cash-in');
   if (cashEl) {
     cashEl.addEventListener('input', function() {
       onCashInput(this.value);
+      const btn = document.getElementById('cash-clear-btn');
+      if (btn) btn.style.display = this.value ? 'block' : 'none';
     });
+    // Select all on tap/click — makes it easy to retype
+    cashEl.addEventListener('focus', function() {
+      this.select();
+      const btn = document.getElementById('cash-clear-btn');
+      if (btn) btn.style.display = this.value ? 'block' : 'none';
+    });
+    cashEl.addEventListener('touchstart', function() {
+      setTimeout(() => this.select(), 50);
+    }, { passive: true });
   }
 }
 
@@ -529,20 +620,37 @@ function renderCartFooter() {
     // Show GCash/Maya/Bank info
     if (payExtraEl) {
       if (STATE.payMethod === 'gcash' || STATE.payMethod === 'maya') {
+        const label = STATE.payMethod==='gcash'?'GCash':'Maya';
+        const qrData = STATE.settings.gcashNumber;
         payExtraEl.innerHTML = `
           <div class="gcash-box">
-            <div class="gcash-title">${STATE.payMethod==='gcash'?'GCash':'Maya'} Number</div>
-            <div class="gcash-num">${STATE.settings.gcashNumber}</div>
-            <div class="gcash-name">${STATE.settings.gcashName}</div>
-            <div style="margin-top:6px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+            <div class="gcash-box-top">
+              <div>
+                <div class="gcash-title">${label} Number</div>
+                <div class="gcash-num">${STATE.settings.gcashNumber}</div>
+                <div class="gcash-name">${STATE.settings.gcashName}</div>
+                <div style="margin-top:4px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+              </div>
+              <button class="qr-flash-btn" onclick="showQRModal('${label}','${qrData}','${STATE.settings.gcashName}',${total},'gcash')">
+                <span style="font-size:22px;">📲</span><span>Show QR</span>
+              </button>
+            </div>
           </div>`;
       } else if (STATE.payMethod === 'bank') {
+        const qrData = STATE.settings.bankAccount;
         payExtraEl.innerHTML = `
           <div class="gcash-box">
-            <div class="gcash-title">${STATE.settings.bankName} Transfer</div>
-            <div class="gcash-num">${STATE.settings.bankAccount}</div>
-            <div class="gcash-name">${STATE.settings.bankAccountName}</div>
-            <div style="margin-top:6px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+            <div class="gcash-box-top">
+              <div>
+                <div class="gcash-title">${STATE.settings.bankName} Transfer</div>
+                <div class="gcash-num">${STATE.settings.bankAccount}</div>
+                <div class="gcash-name">${STATE.settings.bankAccountName}</div>
+                <div style="margin-top:4px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+              </div>
+              <button class="qr-flash-btn" onclick="showQRModal('${STATE.settings.bankName}','${qrData}','${STATE.settings.bankAccountName}',${total},'bank')">
+                <span style="font-size:22px;">📲</span><span>Show QR</span>
+              </button>
+            </div>
           </div>`;
       } else {
         payExtraEl.innerHTML = '';
@@ -607,6 +715,8 @@ function setPayMethod(m) {
   STATE.cashIn = '';
   const inp = document.getElementById('cash-in');
   if (inp) inp.value = '';
+  const clrBtn = document.getElementById('cash-clear-btn');
+  if (clrBtn) clrBtn.style.display = 'none';
   renderCartFooter();
 }
 function setCashIn(v) {
@@ -617,6 +727,14 @@ function setCashIn(v) {
 }
 function onCashInput(val) {
   STATE.cashIn = val;
+  updateChange();
+}
+function clearCashIn() {
+  STATE.cashIn = '';
+  const inp = document.getElementById('cash-in');
+  if (inp) { inp.value = ''; inp.focus(); }
+  const btn = document.getElementById('cash-clear-btn');
+  if (btn) btn.style.display = 'none';
   updateChange();
 }
 function updateChange() {
@@ -1391,6 +1509,18 @@ function renderSettings(container) {
           <input class="setting-inp" id="s-gcash" value="${s.gcashNumber}"/></div>
         <div class="setting-row"><div><div class="setting-lbl">Account Name</div></div>
           <input class="setting-inp" id="s-gcash-name" value="${s.gcashName}"/></div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+          <div class="setting-lbl">GCash/Maya QR Code</div>
+          <div class="qr-upload-row">
+            ${STATE.settings.gcashQR ? `<img src="${STATE.settings.gcashQR}" class="qr-preview" onclick="document.getElementById('gcash-qr-inp').click()"/>` : `<div class="qr-upload-placeholder" onclick="document.getElementById('gcash-qr-inp').click()">📷<br/>Tap to upload QR</div>`}
+            <div style="flex:1">
+              <input type="file" id="gcash-qr-inp" accept="image/*" style="display:none" onchange="uploadQR('gcash',this)"/>
+              <button class="qr-upload-btn" onclick="document.getElementById('gcash-qr-inp').click()">📤 Upload QR Image</button>
+              ${STATE.settings.gcashQR ? `<button class="qr-remove-btn" onclick="removeQR('gcash')">✕ Remove</button>` : ''}
+              <div class="setting-sub" style="margin-top:6px;">Download your QR from GCash/Maya app → Profile → My QR Code</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -1401,6 +1531,18 @@ function renderSettings(container) {
           <input class="setting-inp" id="s-bank-acc" value="${s.bankAccount}"/></div>
         <div class="setting-row"><div><div class="setting-lbl">Account Name</div></div>
           <input class="setting-inp" id="s-bank-name" value="${s.bankAccountName}"/></div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+          <div class="setting-lbl">Bank QR Code</div>
+          <div class="qr-upload-row">
+            ${STATE.settings.bankQR ? `<img src="${STATE.settings.bankQR}" class="qr-preview" onclick="document.getElementById('bank-qr-inp').click()"/>` : `<div class="qr-upload-placeholder" onclick="document.getElementById('bank-qr-inp').click()">📷<br/>Tap to upload QR</div>`}
+            <div style="flex:1">
+              <input type="file" id="bank-qr-inp" accept="image/*" style="display:none" onchange="uploadQR('bank',this)"/>
+              <button class="qr-upload-btn" onclick="document.getElementById('bank-qr-inp').click()">📤 Upload QR Image</button>
+              ${STATE.settings.bankQR ? `<button class="qr-remove-btn" onclick="removeQR('bank')">✕ Remove</button>` : ''}
+              <div class="setting-sub" style="margin-top:6px;">Download your bank QR from your banking app</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="settings-section">
