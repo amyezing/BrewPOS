@@ -360,7 +360,24 @@ function renderPOS(container) {
         </div>
         <div id="cust-info-bar"></div>
         <div id="cart-items"></div>
-        <div id="cart-footer"></div>
+        <div id="cart-footer">
+          <div id="cart-totals"></div>
+          <div id="cart-pay-methods"></div>
+          <div id="cart-cash-section" style="display:none">
+            <div class="cash-row">
+              <span class="cash-lbl">Cash In ₱</span>
+              <input class="cash-inp" id="cash-in" type="tel" inputmode="decimal"
+                placeholder="0.00" autocomplete="off"
+                oninput="onCashInput(this.value)"/>
+            </div>
+            <div id="quick-cash-btns" class="quick-cash"></div>
+            <div id="change-display" class="change-row"></div>
+          </div>
+          <div id="cart-pay-extra"></div>
+          <button class="checkout-btn" id="checkout-btn" onclick="checkout()" disabled>
+            ✓ CHARGE
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -447,94 +464,93 @@ function renderCartItems() {
 }
 
 function renderCartFooter() {
-  const footer = $('cart-footer');
-  if (!footer) return;
   const subtotal = cartSubtotal();
   const discAmt = subtotal * (STATE.discount / 100);
   const total = subtotal - discAmt;
   const cashInNum = Number(STATE.cashIn) || 0;
-  const change = cashInNum - total;
   const loyPts = STATE.foundCustomer ? Math.floor(total * STATE.settings.loyaltyRate) : 0;
 
-  let payExtra = '';
-  if (STATE.payMethod === 'cash') {
-    const qcAmts = [...new Set([total, Math.ceil(total/50)*50, Math.ceil(total/100)*100, Math.ceil(total/500)*500])].slice(0,4);
-    payExtra = `
-      <div class="cash-row">
-        <span class="cash-lbl">Cash In ₱</span>
-        <input class="cash-inp" id="cash-in" type="text" inputmode="decimal"
-          value="${STATE.cashIn}" placeholder="0.00" autocomplete="off"/>
+  // ── Update totals (never touches cash input) ──
+  const totalsEl = document.getElementById('cart-totals');
+  if (totalsEl) {
+    totalsEl.innerHTML = `
+      <div class="discount-row">
+        <span class="disc-lbl">Discount %</span>
+        <input class="disc-inp" type="number" min="0" max="100" value="${STATE.discount}"
+          onchange="STATE.discount=Math.min(100,Math.max(0,+this.value));renderCartFooter()"
+          onblur="STATE.discount=Math.min(100,Math.max(0,+this.value));renderCartFooter()"/>
+        ${discAmt > 0 ? `<span class="disc-amt">-${peso(discAmt)}</span>` : ''}
       </div>
-      ${total > 0 ? `<div class="quick-cash">${qcAmts.map(v => `<button class="qc-btn" onclick="setCashIn(${v})">${v>=1000?'₱'+(v/1000)+'k':'₱'+v}</button>`).join('')}</div>` : ''}
-      <div id="change-display" class="change-row ${change>=0?'change-pos':'change-neg'}">${STATE.cashIn?(change>=0?'Change: '+peso(change):'Short: '+peso(-change)):''}</div>
+      <div class="totals-row"><span>Subtotal</span><span>${peso(subtotal)}</span></div>
+      ${discAmt > 0 ? `<div class="totals-row" style="color:var(--red)"><span>Discount (${STATE.discount}%)</span><span>-${peso(discAmt)}</span></div>` : ''}
+      ${loyPts > 0 ? `<div class="totals-row" style="color:var(--accent)"><span>Loyalty Points Earned</span><span>+${loyPts} pts</span></div>` : ''}
+      <div class="totals-grand"><span>TOTAL</span><span>${peso(total)}</span></div>
     `;
-  } else if (STATE.payMethod === 'gcash' || STATE.payMethod === 'maya') {
-    payExtra = `
-      <div class="gcash-box">
-        <div class="gcash-title">${STATE.payMethod==='gcash'?'GCash':'Maya'} Number</div>
-        <div class="gcash-num">${STATE.settings.gcashNumber}</div>
-        <div class="gcash-name">${STATE.settings.gcashName}</div>
-        <div style="margin-top:6px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
-      </div>
-    `;
-  } else if (STATE.payMethod === 'bank') {
-    payExtra = `
-      <div class="gcash-box">
-        <div class="gcash-title">${STATE.settings.bankName} Transfer</div>
-        <div class="gcash-num">${STATE.settings.bankAccount}</div>
-        <div class="gcash-name">${STATE.settings.bankAccountName}</div>
-        <div style="margin-top:6px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+  }
+
+  // ── Update pay method buttons ──
+  const payMethodsEl = document.getElementById('cart-pay-methods');
+  if (payMethodsEl) {
+    payMethodsEl.innerHTML = `
+      <div class="pay-methods">
+        ${PAY_METHODS.map(p => `
+          <button class="pay-btn ${STATE.payMethod===p.id?'active':''}" onclick="setPayMethod('${p.id}')">
+            <span class="pay-icon">${p.icon}</span>${p.label}
+          </button>`).join('')}
       </div>
     `;
   }
 
-  const canCheckout = STATE.cart.length > 0 &&
-    (STATE.payMethod !== 'cash' || !STATE.cashIn || cashInNum >= total);
+  // ── Show/hide cash section without rebuilding it ──
+  const cashSection = document.getElementById('cart-cash-section');
+  const payExtraEl = document.getElementById('cart-pay-extra');
 
-  footer.innerHTML = `
-    <div class="discount-row">
-      <span class="disc-lbl">Discount %</span>
-      <input class="disc-inp" id="disc-inp" type="number" min="0" max="100" value="${STATE.discount}"
-        onchange="STATE.discount=Math.min(100,Math.max(0,+this.value));renderCartFooter()"
-        onblur="STATE.discount=Math.min(100,Math.max(0,+this.value));renderCartFooter()"/>
-      ${discAmt > 0 ? `<span class="disc-amt">-${peso(discAmt)}</span>` : ''}
-    </div>
-    <div class="totals-row"><span>Subtotal</span><span>${peso(subtotal)}</span></div>
-    ${discAmt > 0 ? `<div class="totals-row" style="color:var(--red)"><span>Discount (${STATE.discount}%)</span><span>-${peso(discAmt)}</span></div>` : ''}
-    ${loyPts > 0 ? `<div class="totals-row" style="color:var(--accent)"><span>Loyalty Points Earned</span><span>+${loyPts} pts</span></div>` : ''}
-    <div class="totals-grand"><span>TOTAL</span><span>${peso(total)}</span></div>
-    <div class="pay-methods">
-      ${PAY_METHODS.map(p => `
-        <button class="pay-btn ${STATE.payMethod===p.id?'active':''}" onclick="setPayMethod('${p.id}')">
-          <span class="pay-icon">${p.icon}</span>${p.label}
-        </button>`).join('')}
-    </div>
-    ${payExtra}
-    <button class="checkout-btn" id="checkout-btn" onclick="checkout()" ${canCheckout?'':'disabled'}>
-      ✓ CHARGE ${STATE.cart.length > 0 ? peso(total) : ''}
-    </button>
-  `;
-
-  // Attach cash input listener AFTER DOM is built — no re-render ever
-  const cashEl = document.getElementById('cash-in');
-  if (cashEl) {
-    cashEl.addEventListener('input', function() {
-      STATE.cashIn = this.value;
-      const t = cartSubtotal() * (1 - STATE.discount/100);
-      const c = Number(this.value) - t;
-      const disp = document.getElementById('change-display');
-      if (disp) {
-        disp.textContent = this.value ? (c>=0 ? 'Change: '+peso(c) : 'Short: '+peso(-c)) : '';
-        disp.className = 'change-row ' + (c>=0?'change-pos':'change-neg');
+  if (STATE.payMethod === 'cash') {
+    if (cashSection) cashSection.style.display = 'block';
+    if (payExtraEl) payExtraEl.innerHTML = '';
+    // Update quick cash buttons based on current total
+    const qcEl = document.getElementById('quick-cash-btns');
+    if (qcEl && total > 0) {
+      const qcAmts = [...new Set([total, Math.ceil(total/50)*50, Math.ceil(total/100)*100, Math.ceil(total/500)*500])].slice(0,4);
+      qcEl.innerHTML = qcAmts.map(v => `<button class="qc-btn" onclick="setCashIn(${v})">${v>=1000?'₱'+(v/1000)+'k':'₱'+v}</button>`).join('');
+    } else if (qcEl) {
+      qcEl.innerHTML = '';
+    }
+    // Update change display without touching the input
+    updateChange();
+  } else {
+    if (cashSection) cashSection.style.display = 'none';
+    // Show GCash/Maya/Bank info
+    if (payExtraEl) {
+      if (STATE.payMethod === 'gcash' || STATE.payMethod === 'maya') {
+        payExtraEl.innerHTML = `
+          <div class="gcash-box">
+            <div class="gcash-title">${STATE.payMethod==='gcash'?'GCash':'Maya'} Number</div>
+            <div class="gcash-num">${STATE.settings.gcashNumber}</div>
+            <div class="gcash-name">${STATE.settings.gcashName}</div>
+            <div style="margin-top:6px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+          </div>`;
+      } else if (STATE.payMethod === 'bank') {
+        payExtraEl.innerHTML = `
+          <div class="gcash-box">
+            <div class="gcash-title">${STATE.settings.bankName} Transfer</div>
+            <div class="gcash-num">${STATE.settings.bankAccount}</div>
+            <div class="gcash-name">${STATE.settings.bankAccountName}</div>
+            <div style="margin-top:6px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+          </div>`;
+      } else {
+        payExtraEl.innerHTML = '';
       }
-      const btn = document.getElementById('checkout-btn');
-      if (btn) btn.disabled = !(STATE.cart.length > 0 && (!this.value || Number(this.value) >= t));
-    });
-    // Focus at end of existing value
-    cashEl.addEventListener('focus', function() {
-      const len = this.value.length;
-      this.setSelectionRange(len, len);
-    });
+    }
+  }
+
+  // ── Update charge button ──
+  const btn = document.getElementById('checkout-btn');
+  if (btn) {
+    const canCheckout = STATE.cart.length > 0 &&
+      (STATE.payMethod !== 'cash' || !STATE.cashIn || cashInNum >= total);
+    btn.disabled = !canCheckout;
+    btn.textContent = '✓ CHARGE' + (STATE.cart.length > 0 ? ' ' + peso(total) : '');
   }
 }
 
@@ -580,33 +596,46 @@ function setSize(s) {
   renderProductGrid();
   renderCartFooter();
 }
-function setPayMethod(m) { STATE.payMethod = m; STATE.cashIn = ''; renderCartFooter(); }
+function setPayMethod(m) {
+  STATE.payMethod = m;
+  STATE.cashIn = '';
+  const inp = document.getElementById('cash-in');
+  if (inp) inp.value = '';
+  renderCartFooter();
+}
 function setCashIn(v) {
   STATE.cashIn = String(v);
   const inp = document.getElementById('cash-in');
-  if (inp) inp.value = v;
+  if (inp) { inp.value = v; inp.focus(); }
+  updateChange();
+}
+function onCashInput(val) {
+  STATE.cashIn = val;
   updateChange();
 }
 function updateChange() {
-  const inp = document.getElementById('cash-in');
-  if (inp) STATE.cashIn = inp.value;
   const total = cartSubtotal() * (1 - STATE.discount/100);
   const cashInNum = Number(STATE.cashIn) || 0;
   const change = cashInNum - total;
-  const el = document.getElementById('change-display');
-  if (el) {
-    el.textContent = STATE.cashIn ? (change>=0 ? 'Change: '+peso(change) : 'Short: '+peso(-change)) : '';
-    el.className = 'change-row ' + (change>=0?'change-pos':'change-neg');
+  const disp = document.getElementById('change-display');
+  if (disp) {
+    disp.textContent = STATE.cashIn ? (change>=0 ? 'Change: '+peso(change) : 'Short: '+peso(-change)) : '';
+    disp.className = 'change-row ' + (change>=0?'change-pos':'change-neg');
   }
-  // Update checkout button
-  const btn = document.querySelector('.checkout-btn');
+  const btn = document.getElementById('checkout-btn');
   if (btn) {
     const canCheckout = STATE.cart.length > 0 &&
       (STATE.payMethod !== 'cash' || !STATE.cashIn || cashInNum >= total);
     btn.disabled = !canCheckout;
+    btn.textContent = '\u2713 CHARGE' + (STATE.cart.length > 0 ? ' ' + peso(total) : '');
   }
 }
-function clearCart() { STATE.cart = []; STATE.discount = 0; STATE.cashIn = ''; renderCartItems(); renderCartFooter(); }
+function clearCart() {
+  STATE.cart = []; STATE.discount = 0; STATE.cashIn = '';
+  const inp = document.getElementById('cash-in');
+  if (inp) inp.value = '';
+  renderCartItems(); renderCartFooter();
+}
 
 function addToCart(prodId) {
   const p = STATE.products.find(x => x.id === prodId);
