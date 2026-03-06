@@ -1,5 +1,5 @@
 {
-  "name": "BrewPOS – Bubble Tea POS",
+  "name": "BrewPOS Café",
   "short_name": "BrewPOS",
   "description": "Point of Sale system for bubble tea & café",
   "start_url": "/BrewPOS/",
@@ -58,6 +58,36 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/screen-pos.png",
+      "sizes": "1190x667",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "POS Screen – Take orders quickly"
+    },
+    {
+      "src": "screenshots/screen-kitchen.png",
+      "sizes": "1179x669",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Kitchen Display – Track order queue"
+    },
+    {
+      "src": "screenshots/screen-orders.png",
+      "sizes": "1188x668",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Orders History – View all transactions"
+    },
+    {
+      "src": "screenshots/screen-pos-mobile.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "platform": "narrow",
+      "label": "POS on mobile"
     }
   ],
   "shortcuts": [
