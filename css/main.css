@@ -4,8 +4,9 @@
   --card: #1a1a28;
   --card2: #1f1f30;
   --border: #2a2a40;
-  --accent: #f5a623;
-  --accent2: #e8951a;
+  --accent: #d4891a;
+  --accent2: #c07810;
+  --accent-soft: rgba(212,137,26,0.15);
   --green: #2ecc7a;
   --red: #e94560;
   --blue: #4ea8de;
@@ -38,12 +39,12 @@ input,select,textarea{font-family:var(--font-body);}
 /* ── SPLASH ── */
 #splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:12px;z-index:999;}
-.splash-logo{font-size:64px;animation:pulse 1.5s infinite;}
+.splash-logo{font-size:72px;animation:pulse 1.5s infinite;}
 .splash-name{font-family:var(--font-display);font-size:32px;font-weight:800;color:var(--accent);}
 .splash-sub{font-size:13px;color:var(--muted);}
-.splash-bar{width:200px;height:3px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;}
-.splash-fill{height:100%;background:var(--accent);border-radius:3px;animation:load 1.5s ease forwards;}
-@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+.splash-bar{width:220px;height:3px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:8px;}
+.splash-fill{height:100%;background:var(--accent);border-radius:3px;animation:load 1.8s ease forwards;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
 @keyframes load{from{width:0}to{width:100%}}
 
 /* ── LAYOUT ── */
@@ -78,7 +79,7 @@ input,select,textarea{font-family:var(--font-body);}
   font-size:9px;font-weight:500;padding:4px 4px;transition:all .15s;
   border-top:2px solid transparent;cursor:pointer;}
 .bnav-btn.active{color:var(--accent);border-top-color:var(--accent);}
-.bnav-btn:active{background:rgba(245,166,35,.08);}
+.bnav-btn:active{background:rgba(212,137,26,.08);}
 .bnav-icon{font-size:17px;line-height:1;}
 .bnav-label{font-size:9px;white-space:nowrap;}
 
@@ -102,7 +103,7 @@ input,select,textarea{font-family:var(--font-body);}
 .sz-btn{background:var(--card);border:1.5px solid var(--border);padding:6px 10px;
   border-radius:7px;color:var(--muted);font-size:12px;font-weight:600;transition:all .15s;
   min-width:36px;text-align:center;flex-shrink:0;cursor:pointer;}
-.sz-btn.active{border-color:var(--accent);color:#000;background:var(--accent);}
+.sz-btn.active{border-color:var(--accent);color:#fff;background:var(--accent);}
 .sz-btn:active{transform:scale(.94);}
 
 /* Category chips */
@@ -202,7 +203,7 @@ input,select,textarea{font-family:var(--font-body);}
 .change-row{font-size:11px;text-align:right;margin-bottom:6px;}
 .change-pos{color:var(--green);}
 .change-neg{color:var(--red);}
-.checkout-btn{width:100%;padding:13px;background:var(--accent);color:#000;border:none;
+.checkout-btn{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;
   border-radius:var(--r);font-size:14px;font-weight:700;transition:all .15s;cursor:pointer;}
 .checkout-btn:active{background:var(--accent2);transform:scale(.98);}
 .checkout-btn:disabled{opacity:.35;cursor:not-allowed;}
