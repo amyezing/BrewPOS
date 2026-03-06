@@ -462,10 +462,8 @@ function renderCartFooter() {
     payExtra = `
       <div class="cash-row">
         <span class="cash-lbl">Cash In ₱</span>
-        <input class="cash-inp" id="cash-in" type="number" inputmode="decimal"
-          value="${STATE.cashIn}" placeholder="0.00"
-          onchange="STATE.cashIn=this.value;updateChange()"
-          onblur="STATE.cashIn=this.value;updateChange()"/>
+        <input class="cash-inp" id="cash-in" type="text" inputmode="decimal"
+          value="${STATE.cashIn}" placeholder="0.00" autocomplete="off"/>
       </div>
       ${total > 0 ? `<div class="quick-cash">${qcAmts.map(v => `<button class="qc-btn" onclick="setCashIn(${v})">${v>=1000?'₱'+(v/1000)+'k':'₱'+v}</button>`).join('')}</div>` : ''}
       <div id="change-display" class="change-row ${change>=0?'change-pos':'change-neg'}">${STATE.cashIn?(change>=0?'Change: '+peso(change):'Short: '+peso(-change)):''}</div>
@@ -491,13 +489,14 @@ function renderCartFooter() {
   }
 
   const canCheckout = STATE.cart.length > 0 &&
-    (STATE.payMethod !== 'cash' || !STATE.cashIn || Number(STATE.cashIn) >= total);
+    (STATE.payMethod !== 'cash' || !STATE.cashIn || cashInNum >= total);
 
   footer.innerHTML = `
     <div class="discount-row">
       <span class="disc-lbl">Discount %</span>
-      <input class="disc-inp" type="number" min="0" max="100" value="${STATE.discount}"
-        oninput="STATE.discount=Math.min(100,Math.max(0,+this.value));renderCartFooter()"/>
+      <input class="disc-inp" id="disc-inp" type="number" min="0" max="100" value="${STATE.discount}"
+        onchange="STATE.discount=Math.min(100,Math.max(0,+this.value));renderCartFooter()"
+        onblur="STATE.discount=Math.min(100,Math.max(0,+this.value));renderCartFooter()"/>
       ${discAmt > 0 ? `<span class="disc-amt">-${peso(discAmt)}</span>` : ''}
     </div>
     <div class="totals-row"><span>Subtotal</span><span>${peso(subtotal)}</span></div>
@@ -511,10 +510,32 @@ function renderCartFooter() {
         </button>`).join('')}
     </div>
     ${payExtra}
-    <button class="checkout-btn" onclick="checkout()" ${canCheckout?'':'disabled'}>
+    <button class="checkout-btn" id="checkout-btn" onclick="checkout()" ${canCheckout?'':'disabled'}>
       ✓ CHARGE ${STATE.cart.length > 0 ? peso(total) : ''}
     </button>
   `;
+
+  // Attach cash input listener AFTER DOM is built — no re-render ever
+  const cashEl = document.getElementById('cash-in');
+  if (cashEl) {
+    cashEl.addEventListener('input', function() {
+      STATE.cashIn = this.value;
+      const t = cartSubtotal() * (1 - STATE.discount/100);
+      const c = Number(this.value) - t;
+      const disp = document.getElementById('change-display');
+      if (disp) {
+        disp.textContent = this.value ? (c>=0 ? 'Change: '+peso(c) : 'Short: '+peso(-c)) : '';
+        disp.className = 'change-row ' + (c>=0?'change-pos':'change-neg');
+      }
+      const btn = document.getElementById('checkout-btn');
+      if (btn) btn.disabled = !(STATE.cart.length > 0 && (!this.value || Number(this.value) >= t));
+    });
+    // Focus at end of existing value
+    cashEl.addEventListener('focus', function() {
+      const len = this.value.length;
+      this.setSelectionRange(len, len);
+    });
+  }
 }
 
 function renderCustInfo() {
