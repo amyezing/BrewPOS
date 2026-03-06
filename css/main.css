@@ -651,3 +651,13 @@ input,select,textarea{font-family:var(--font-body);}
   border:1px solid var(--red);border-radius:8px;color:var(--red);
   font-size:11px;cursor:pointer;}
 .qr-remove-btn:active{background:var(--red);color:#fff;}
+
+/* ── CUSTOM SIZE EDITOR ── */
+.size-edit-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.size-key-inp{width:64px;background:var(--input);border:1.5px solid var(--border);
+  border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;font-weight:700;
+  outline:none;text-align:center;text-transform:uppercase;}
+.size-key-inp:focus{border-color:var(--accent);}
+.size-lbl-inp{flex:1;background:var(--input);border:1.5px solid var(--border);
+  border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;outline:none;}
+.size-lbl-inp:focus{border-color:var(--accent);}
