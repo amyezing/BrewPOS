@@ -60,9 +60,15 @@ window.DEFAULT_SETTINGS = {
   storeAddress: 'Your Store Address',
   gcashNumber: '09XXXXXXXXX',
   gcashName: 'Store Owner',
+  mayaNumber: '09XXXXXXXXX',
+  mayaName: 'Store Owner',
   bankName: 'BDO',
   bankAccount: '0000-0000-0000',
   bankAccountName: 'Store Owner',
+  gcashQR: '',
+  mayaQR: '',
+  bankQR: '',
+  customSizes: '',
   taxRate: 0,
   loyaltyRate: 1,       // pts per peso
   loyaltyRedeem: 100,   // pts = ₱1
@@ -77,6 +83,8 @@ window.DEFAULT_SETTINGS = {
 window.CATEGORIES = ['All','Milk Tea','Frappe','Coffee','Matcha','Smoothie','Add-ons'];
 window.SIZES = ['S','M','L','XL'];
 window.SIZE_LABELS = { S:'Small', M:'Medium', L:'Large', XL:'Extra Large' };
+// These get overridden at runtime from settings
+window.DEFAULT_SIZE_LABELS = { S:'Small', M:'Medium', L:'Large', XL:'Extra Large' };
 window.PAY_METHODS = [
   { id:'cash',    label:'Cash',         icon:'💵' },
   { id:'gcash',   label:'GCash',        icon:'📱' },
