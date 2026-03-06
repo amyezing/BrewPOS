@@ -8,6 +8,8 @@
   "orientation": "any",
   "background_color": "#f5a623",
   "theme_color": "#f5a623",
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
       "src": "icons/icon-48.png",
@@ -58,10 +60,47 @@
       "purpose": "maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "New Order",
+      "short_name": "POS",
+      "description": "Open the POS to take a new order",
+      "url": "/BrewPOS/?view=pos",
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Kitchen Display",
+      "short_name": "Kitchen",
+      "description": "View the kitchen order queue",
+      "url": "/BrewPOS/?view=kitchen",
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Orders History",
+      "short_name": "Orders",
+      "description": "View all past orders",
+      "url": "/BrewPOS/?view=orders",
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
   "categories": [
     "business",
     "food"
   ],
-  "lang": "en",
-  "dir": "ltr"
+  "prefer_related_applications": false
 }
