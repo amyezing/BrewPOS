@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.amyezing.twa",
-        "sha256_cert_fingerprints": ["6A:8D:D0:FE:96:3F:92:58:5B:51:90:6D:30:4B:51:1B:65:00:11:E3:37:6C:F1:83:CF:15:B1:DF:64:08:C6:F0"]
-      }
-    }]
