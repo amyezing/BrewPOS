@@ -367,8 +367,7 @@ function renderPOS(container) {
             <div class="cash-row">
               <span class="cash-lbl">Cash In ₱</span>
               <input class="cash-inp" id="cash-in" type="tel" inputmode="decimal"
-                placeholder="0.00" autocomplete="off"
-                oninput="onCashInput(this.value)"/>
+                placeholder="0.00" autocomplete="off"/>
             </div>
             <div id="quick-cash-btns" class="quick-cash"></div>
             <div id="change-display" class="change-row"></div>
@@ -385,6 +384,13 @@ function renderPOS(container) {
   renderCartItems();
   renderCartFooter();
   renderCustInfo();
+  // Attach cash input listener ONCE — never re-attached
+  const cashEl = document.getElementById('cash-in');
+  if (cashEl) {
+    cashEl.addEventListener('input', function() {
+      onCashInput(this.value);
+    });
+  }
 }
 
 function renderProductGrid() {
