@@ -79,6 +79,7 @@ function closeModal() {
 function showQRModal(label, data, name, amount, qrImageKey) {
   // Check if user has uploaded a QR image
   const qrImg = qrImageKey === 'gcash' ? STATE.settings.gcashQR :
+                qrImageKey === 'maya'  ? STATE.settings.mayaQR  :
                 qrImageKey === 'bank'  ? STATE.settings.bankQR  : null;
 
   const overlay = document.createElement('div');
@@ -136,7 +137,7 @@ function uploadQR(type, input) {
   if (file.size > 2 * 1024 * 1024) return toast('Image too large (max 2MB)', 'error');
   const reader = new FileReader();
   reader.onload = async function(e) {
-    const key = type === 'gcash' ? 'gcashQR' : 'bankQR';
+    const key = type === 'gcash' ? 'gcashQR' : type === 'maya' ? 'mayaQR' : 'bankQR';
     STATE.settings[key] = e.target.result;
     await DB.setSetting(key, e.target.result);
     toast('QR image saved! ✓', 'success');
@@ -146,7 +147,7 @@ function uploadQR(type, input) {
 }
 
 async function removeQR(type) {
-  const key = type === 'gcash' ? 'gcashQR' : 'bankQR';
+  const key = type === 'gcash' ? 'gcashQR' : type === 'maya' ? 'mayaQR' : 'bankQR';
   STATE.settings[key] = '';
   await DB.setSetting(key, '');
   toast('QR removed', 'success');
@@ -619,19 +620,34 @@ function renderCartFooter() {
     if (cashSection) cashSection.style.display = 'none';
     // Show GCash/Maya/Bank info
     if (payExtraEl) {
-      if (STATE.payMethod === 'gcash' || STATE.payMethod === 'maya') {
-        const label = STATE.payMethod==='gcash'?'GCash':'Maya';
+      if (STATE.payMethod === 'gcash') {
         const qrData = STATE.settings.gcashNumber;
         payExtraEl.innerHTML = `
           <div class="gcash-box">
             <div class="gcash-box-top">
               <div>
-                <div class="gcash-title">${label} Number</div>
+                <div class="gcash-title">GCash Number</div>
                 <div class="gcash-num">${STATE.settings.gcashNumber}</div>
                 <div class="gcash-name">${STATE.settings.gcashName}</div>
                 <div style="margin-top:4px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
               </div>
-              <button class="qr-flash-btn" onclick="showQRModal('${label}','${qrData}','${STATE.settings.gcashName}',${total},'gcash')">
+              <button class="qr-flash-btn" onclick="showQRModal('GCash','${qrData}','${STATE.settings.gcashName}',${total},'gcash')">
+                <span style="font-size:22px;">📲</span><span>Show QR</span>
+              </button>
+            </div>
+          </div>`;
+      } else if (STATE.payMethod === 'maya') {
+        const qrData = STATE.settings.mayaNumber;
+        payExtraEl.innerHTML = `
+          <div class="gcash-box">
+            <div class="gcash-box-top">
+              <div>
+                <div class="gcash-title">Maya Number</div>
+                <div class="gcash-num">${STATE.settings.mayaNumber}</div>
+                <div class="gcash-name">${STATE.settings.mayaName}</div>
+                <div style="margin-top:4px;font-size:13px;color:var(--accent);font-weight:700;">Amount: ${peso(total)}</div>
+              </div>
+              <button class="qr-flash-btn" onclick="showQRModal('Maya','${qrData}','${STATE.settings.mayaName}',${total},'maya')">
                 <span style="font-size:22px;">📲</span><span>Show QR</span>
               </button>
             </div>
@@ -1504,8 +1520,8 @@ function renderSettings(container) {
       </div>
 
       <div class="settings-section">
-        <div class="settings-title">📱 GCash / Maya</div>
-        <div class="setting-row"><div><div class="setting-lbl">GCash/Maya Number</div></div>
+        <div class="settings-title">📱 GCash</div>
+        <div class="setting-row"><div><div class="setting-lbl">GCash Number</div></div>
           <input class="setting-inp" id="s-gcash" value="${s.gcashNumber}"/></div>
         <div class="setting-row"><div><div class="setting-lbl">Account Name</div></div>
           <input class="setting-inp" id="s-gcash-name" value="${s.gcashName}"/></div>
@@ -1518,6 +1534,26 @@ function renderSettings(container) {
               <button class="qr-upload-btn" onclick="document.getElementById('gcash-qr-inp').click()">📤 Upload QR Image</button>
               ${STATE.settings.gcashQR ? `<button class="qr-remove-btn" onclick="removeQR('gcash')">✕ Remove</button>` : ''}
               <div class="setting-sub" style="margin-top:6px;">Download your QR from GCash/Maya app → Profile → My QR Code</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">💳 Maya</div>
+        <div class="setting-row"><div><div class="setting-lbl">Maya Number</div></div>
+          <input class="setting-inp" id="s-maya" value="${s.mayaNumber}"/></div>
+        <div class="setting-row"><div><div class="setting-lbl">Account Name</div></div>
+          <input class="setting-inp" id="s-maya-name" value="${s.mayaName}"/></div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+          <div class="setting-lbl">Maya QR Code</div>
+          <div class="qr-upload-row">
+            ${STATE.settings.mayaQR ? `<img src="${STATE.settings.mayaQR}" class="qr-preview" onclick="document.getElementById('maya-qr-inp').click()"/>` : `<div class="qr-upload-placeholder" onclick="document.getElementById('maya-qr-inp').click()">📷<br/>Tap to upload QR</div>`}
+            <div style="flex:1">
+              <input type="file" id="maya-qr-inp" accept="image/*" style="display:none" onchange="uploadQR('maya',this)"/>
+              <button class="qr-upload-btn" onclick="document.getElementById('maya-qr-inp').click()">📤 Upload QR Image</button>
+              ${STATE.settings.mayaQR ? `<button class="qr-remove-btn" onclick="removeQR('maya')">✕ Remove</button>` : ''}
+              <div class="setting-sub" style="margin-top:6px;">Download from Maya app → Profile → My QR</div>
             </div>
           </div>
         </div>
@@ -1542,6 +1578,26 @@ function renderSettings(container) {
               <div class="setting-sub" style="margin-top:6px;">Download your bank QR from your banking app</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">📐 Custom Sizes</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">
+          Define up to 5 sizes for your menu. Use short keys (e.g. S, M, L) and labels (e.g. Small, Grande).<br/>
+          Leave a row empty to remove that size. Changes apply after Save.
+        </div>
+        <div id="sizes-editor">
+          ${(STATE.settings.customSizes ? JSON.parse(STATE.settings.customSizes) : SIZES.map(k=>({key:k,label:SIZE_LABELS[k]}))).map((sz,i) => `
+            <div class="size-edit-row" id="size-row-${i}">
+              <input class="size-key-inp" placeholder="Key" maxlength="4" value="${sz.key}"
+                oninput="updateSizeRow(${i})" id="sz-key-${i}"/>
+              <input class="size-lbl-inp" placeholder="Label (e.g. Grande)" value="${sz.label}"
+                oninput="updateSizeRow(${i})" id="sz-lbl-${i}"/>
+              <button onclick="removeSizeRow(${i})" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:4px;">✕</button>
+            </div>
+          `).join('')}
+          <button onclick="addSizeRow()" class="qr-upload-btn" style="margin-top:8px;">+ Add Size</button>
         </div>
       </div>
 
@@ -1622,14 +1678,70 @@ function togglePinVisibility() {
   if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 
+function applySizes(sizes) {
+  window.SIZES = sizes.map(s => s.key);
+  window.SIZE_LABELS = {};
+  sizes.forEach(s => { SIZE_LABELS[s.key] = s.label; });
+  // Reset selectedSize if it no longer exists
+  if (!SIZES.includes(STATE.selectedSize)) STATE.selectedSize = SIZES[0] || 'M';
+}
+
+function addSizeRow() {
+  const editor = document.getElementById('sizes-editor');
+  if (!editor) return;
+  const rows = editor.querySelectorAll('.size-edit-row');
+  if (rows.length >= 5) return toast('Max 5 sizes', 'error');
+  const i = rows.length;
+  const div = document.createElement('div');
+  div.className = 'size-edit-row';
+  div.id = 'size-row-' + i;
+  div.innerHTML = `
+    <input class="size-key-inp" placeholder="Key" maxlength="4" id="sz-key-${i}"/>
+    <input class="size-lbl-inp" placeholder="Label" id="sz-lbl-${i}"/>
+    <button onclick="removeSizeRow(${i})" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:4px;">✕</button>
+  `;
+  editor.insertBefore(div, editor.lastElementChild);
+}
+
+function removeSizeRow(i) {
+  const row = document.getElementById('size-row-'+i);
+  if (row) row.remove();
+  // Re-index remaining rows
+  const editor = document.getElementById('sizes-editor');
+  if (editor) {
+    editor.querySelectorAll('.size-edit-row').forEach((r, idx) => {
+      r.id = 'size-row-' + idx;
+      const ki = r.querySelector('[id^="sz-key-"]'); if (ki) ki.id = 'sz-key-' + idx;
+      const li = r.querySelector('[id^="sz-lbl-"]'); if (li) li.id = 'sz-lbl-' + idx;
+      const btn = r.querySelector('button'); if (btn) btn.setAttribute('onclick', `removeSizeRow(${idx})`);
+    });
+  }
+}
+
+function updateSizeRow(i) { /* live preview — no-op, saved on saveSettings */ }
+
 async function saveSettings() {
   STATE.settings.storeName = $('s-name').value;
   STATE.settings.storeAddress = $('s-addr').value;
   STATE.settings.gcashNumber = $('s-gcash').value;
   STATE.settings.gcashName = $('s-gcash-name').value;
+  STATE.settings.mayaNumber = $('s-maya') ? $('s-maya').value : STATE.settings.mayaNumber;
+  STATE.settings.mayaName = $('s-maya-name') ? $('s-maya-name').value : STATE.settings.mayaName;
   STATE.settings.bankName = $('s-bank').value;
   STATE.settings.bankAccount = $('s-bank-acc').value;
   STATE.settings.bankAccountName = $('s-bank-name').value;
+  // Save custom sizes
+  const sizeRows = document.querySelectorAll('.size-edit-row');
+  const newSizes = [];
+  sizeRows.forEach((row, i) => {
+    const key = document.getElementById('sz-key-'+i)?.value.trim().toUpperCase();
+    const lbl = document.getElementById('sz-lbl-'+i)?.value.trim();
+    if (key && lbl) newSizes.push({key, label: lbl});
+  });
+  if (newSizes.length > 0) {
+    STATE.settings.customSizes = JSON.stringify(newSizes);
+    applySizes(newSizes);
+  }
   STATE.settings.loyaltyRate = Number($('s-loy-rate').value) || 1;
   STATE.settings.loyaltyRedeem = Number($('s-loy-redeem').value) || 100;
   // PIN
