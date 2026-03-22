@@ -1839,6 +1839,7 @@ Object.assign(window, {
   showAdjustModal, doAdjust, addIngredient, showAddIngredientModal,
   showEditIngredientModal, saveEditIngredient, confirmDeleteIngredient, deleteIngredient,
   renderProductsMgmt, showAddProductModal, saveNewProduct,
+  addRecipeRow, removeRecipeRow, updateRecipeCost,
   showEditProductModal, saveEditProduct, toggleProductActive,
   confirmDeleteProduct, deleteProduct, selectEmoji, selectColor,
   showCustomerDetail, redeemPoints, renderCustomerCards,
@@ -2001,10 +2002,75 @@ function selectColor(c) {
   if (event && event.target) event.target.style.borderColor = '#fff';
 }
 
+function recipeIngOptions(selectedId) {
+  return STATE.ingredients.map(i =>
+    `<option value="${i.id}" ${i.id===selectedId?'selected':''}>${i.name} (${i.unit})</option>`
+  ).join('');
+}
+
+function addRecipeRow(prefix, ingId=null, qty=0) {
+  const wrap = document.getElementById(prefix+'-recipe-rows');
+  if (!wrap) return;
+  const idx = wrap.children.length;
+  const row = document.createElement('div');
+  row.className = 'recipe-row';
+  row.id = prefix+'-rrow-'+idx;
+  row.innerHTML = `
+    <select class="modal-select recipe-ing-sel" id="${prefix}-ring-${idx}" onchange="updateRecipeCost('${prefix}')">
+      <option value="">— Select ingredient —</option>
+      ${recipeIngOptions(ingId)}
+    </select>
+    <input class="modal-inp recipe-qty-inp" id="${prefix}-rqty-${idx}" type="number"
+      inputmode="decimal" placeholder="Qty" value="${qty||''}" min="0"
+      oninput="updateRecipeCost('${prefix}')" style="width:72px;margin:0;"/>
+    <button onclick="removeRecipeRow('${prefix}',${idx})"
+      style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>
+  `;
+  wrap.appendChild(row);
+  updateRecipeCost(prefix);
+}
+
+function removeRecipeRow(prefix, idx) {
+  const row = document.getElementById(prefix+'-rrow-'+idx);
+  if (row) row.remove();
+  updateRecipeCost(prefix);
+}
+
+function updateRecipeCost(prefix) {
+  let totalCost = 0;
+  const wrap = document.getElementById(prefix+'-recipe-rows');
+  if (!wrap) return;
+  wrap.querySelectorAll('.recipe-row').forEach(row => {
+    const sel = row.querySelector('.recipe-ing-sel');
+    const qty = parseFloat(row.querySelector('.recipe-qty-inp').value) || 0;
+    const ingId = parseInt(sel?.value);
+    const ing = STATE.ingredients.find(i => i.id === ingId);
+    if (ing && qty > 0) totalCost += ing.costPer * qty;
+  });
+  const el = document.getElementById(prefix+'-recipe-cost');
+  if (el) {
+    el.innerHTML = totalCost > 0
+      ? `Ingredient cost: <strong style="color:var(--accent)">${peso(totalCost)}</strong> per serving`
+      : 'Add ingredients to compute cost';
+  }
+}
+
+function getRecipeRows(prefix) {
+  const wrap = document.getElementById(prefix+'-recipe-rows');
+  if (!wrap) return [];
+  const rows = [];
+  wrap.querySelectorAll('.recipe-row').forEach(row => {
+    const ingId = parseInt(row.querySelector('.recipe-ing-sel')?.value);
+    const qty = parseFloat(row.querySelector('.recipe-qty-inp')?.value) || 0;
+    if (ingId && qty > 0) rows.push({ ingId, qty });
+  });
+  return rows;
+}
+
 function showAddProductModal() {
   showModal(`
     <div class="modal-title">+ Add Product</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
       <div>
         <div class="modal-label">Product Name *</div>
         <input class="modal-inp" id="np-name" placeholder="e.g. Okinawa Milk Tea"/>
@@ -2017,20 +2083,31 @@ function showAddProductModal() {
         </datalist>
       </div>
     </div>
-    <div class="modal-label">Emoji (tap one)</div>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;max-height:72px;overflow-y:auto;">
-      ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:18px;background:var(--card);border:1.5px solid var(--border);border-radius:7px;padding:3px 7px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:4px;">
+      <div>
+        <div class="modal-label">Emoji</div>
+        <input class="modal-inp" id="np-emoji" value="🧋" style="width:64px;text-align:center;font-size:20px;margin:0;"/>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1;max-height:60px;overflow-y:auto;">
+        ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:16px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+      </div>
     </div>
-    <input class="modal-inp" id="np-emoji" placeholder="Emoji" value="🧋" style="width:80px;text-align:center;font-size:20px;margin-bottom:8px;"/>
-    <div class="modal-label">Color (tap one)</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-      ${COLOR_OPTIONS.map(c=>`<button onclick="selectColor('${c}')" style="width:24px;height:24px;border-radius:50%;background:${c};border:2px solid transparent;cursor:pointer;" class="color-opt" data-color="${c}"></button>`).join('')}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      ${COLOR_OPTIONS.map(c=>`<button onclick="selectColor('${c}')" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid transparent;cursor:pointer;" class="color-opt" data-color="${c}"></button>`).join('')}
+      <input class="modal-inp" id="np-color" value="#f5a623" placeholder="#hex" style="width:90px;margin:0;font-size:11px;"/>
     </div>
-    <input class="modal-inp" id="np-color" value="#f5a623" placeholder="#hex color" style="width:110px;margin-bottom:8px;"/>
+
     <div class="modal-label">Prices per Size (₱)</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
-      ${SIZES.map(s=>`<div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${s} – ${SIZE_LABELS[s]}</div><input class="modal-inp" id="np-price-${s}" type="number" placeholder="0" style="margin:0"/></div>`).join('')}
+    <div style="display:grid;grid-template-columns:repeat(${SIZES.length},1fr);gap:6px;margin-bottom:10px;">
+      ${SIZES.map(s=>`<div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${SIZE_LABELS[s]||s}</div><input class="modal-inp" id="np-price-${s}" type="number" inputmode="decimal" placeholder="0" style="margin:0;text-align:center;"/></div>`).join('')}
     </div>
+
+    <div class="modal-label">🧪 Recipe (Ingredients used per serving)</div>
+    <div id="np-recipe-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
+    <button onclick="addRecipeRow('np')" class="qr-upload-btn" style="margin-bottom:6px;">+ Add Ingredient</button>
+    <div id="np-recipe-cost" style="font-size:12px;color:var(--muted);text-align:center;padding:6px;
+      background:var(--card);border-radius:8px;margin-bottom:8px;">Add ingredients to compute cost</div>
+
     <div class="modal-btns">
       <button class="modal-btn secondary" onclick="closeModal()">Cancel</button>
       <button class="modal-btn primary" onclick="saveNewProduct()">Add Product</button>
@@ -2052,7 +2129,7 @@ async function saveNewProduct() {
     color: document.getElementById('np-color').value || '#f5a623',
     prices,
     active: true,
-    recipe: [],
+    recipe: getRecipeRows('np'),
   };
   await DB.put('products', prod);
   STATE.products.push(prod);
@@ -2064,9 +2141,14 @@ async function saveNewProduct() {
 function showEditProductModal(prodId) {
   const p = STATE.products.find(x => x.id === prodId);
   if (!p) return;
+  // Compute current ingredient cost
+  const currentCost = (p.recipe||[]).reduce((sum,r) => {
+    const ing = STATE.ingredients.find(i => i.id === r.ingId);
+    return sum + (ing ? ing.costPer * r.qty : 0);
+  }, 0);
   showModal(`
     <div class="modal-title">✏️ Edit — ${p.emoji} ${p.name}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;">
       <div>
         <div class="modal-label">Product Name</div>
         <input class="modal-inp" id="ep-name" value="${p.name}"/>
@@ -2079,35 +2161,53 @@ function showEditProductModal(prodId) {
         </datalist>
       </div>
     </div>
-    <div class="modal-label">Emoji (tap one)</div>
-    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;max-height:72px;overflow-y:auto;">
-      ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:18px;background:var(--card);border:1.5px solid ${e===p.emoji?'var(--accent)':'var(--border)'};border-radius:7px;padding:3px 7px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:4px;">
+      <div>
+        <div class="modal-label">Emoji</div>
+        <input class="modal-inp" id="ep-emoji" value="${p.emoji}" style="width:64px;text-align:center;font-size:20px;margin:0;"/>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1;max-height:56px;overflow-y:auto;">
+        ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:16px;background:var(--card);border:1.5px solid ${e===p.emoji?'var(--accent)':'var(--border)'};border-radius:6px;padding:2px 6px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+      </div>
     </div>
-    <input class="modal-inp" id="ep-emoji" value="${p.emoji}" style="width:80px;text-align:center;font-size:20px;margin-bottom:8px;"/>
-    <div class="modal-label">Color</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-      ${COLOR_OPTIONS.map(c=>`<button onclick="selectColor('${c}')" style="width:24px;height:24px;border-radius:50%;background:${c};border:2px solid ${c===p.color?'#fff':'transparent'};cursor:pointer;" class="color-opt" data-color="${c}"></button>`).join('')}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+      ${COLOR_OPTIONS.map(c=>`<button onclick="selectColor('${c}')" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c===p.color?'#fff':'transparent'};cursor:pointer;" class="color-opt" data-color="${c}"></button>`).join('')}
+      <input class="modal-inp" id="ep-color" value="${p.color||'#f5a623'}" placeholder="#hex" style="width:90px;margin:0;font-size:11px;"/>
     </div>
-    <input class="modal-inp" id="ep-color" value="${p.color||'#f5a623'}" placeholder="#hex" style="width:110px;margin-bottom:8px;"/>
+
     <div class="modal-label">Prices per Size (₱)</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
-      ${SIZES.map(s=>`<div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${s} – ${SIZE_LABELS[s]}</div><input class="modal-inp" id="ep-price-${s}" type="number" value="${p.prices[s]||0}" style="margin:0"/></div>`).join('')}
+    <div style="display:grid;grid-template-columns:repeat(${SIZES.length},1fr);gap:6px;margin-bottom:10px;">
+      ${SIZES.map(s=>`<div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${SIZE_LABELS[s]||s}</div><input class="modal-inp" id="ep-price-${s}" type="number" inputmode="decimal" value="${p.prices[s]||0}" style="margin:0;text-align:center;"/></div>`).join('')}
     </div>
+
+    <div class="modal-label">🧪 Recipe (Ingredients per serving)</div>
+    <div id="ep-recipe-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
+    <button onclick="addRecipeRow('ep')" class="qr-upload-btn" style="margin-bottom:6px;">+ Add Ingredient</button>
+    <div id="ep-recipe-cost" style="font-size:12px;color:var(--muted);text-align:center;padding:6px;
+      background:var(--card);border-radius:8px;margin-bottom:8px;">
+      ${currentCost > 0 ? `Current cost: <strong style="color:var(--accent)">${peso(currentCost)}</strong> per serving` : 'Add ingredients to compute cost'}
+    </div>
+
     <div class="modal-btns">
       <button class="modal-btn secondary" onclick="closeModal()">Cancel</button>
-      <button class="modal-btn primary" onclick="saveEditProduct(${prodId})">💾 Save Changes</button>
+      <button class="modal-btn primary" onclick="saveEditProduct(${prodId})">💾 Save</button>
     </div>
   `);
+  // Pre-fill existing recipe rows
+  setTimeout(() => {
+    (p.recipe||[]).forEach(r => addRecipeRow('ep', r.ingId, r.qty));
+  }, 50);
 }
 
 async function saveEditProduct(prodId) {
   const p = STATE.products.find(x => x.id === prodId);
   if (!p) return;
-  p.name  = document.getElementById('ep-name').value.trim() || p.name;
-  p.cat   = document.getElementById('ep-cat').value.trim() || p.cat;
-  p.emoji = document.getElementById('ep-emoji').value || p.emoji;
-  p.color = document.getElementById('ep-color').value || p.color;
+  p.name   = document.getElementById('ep-name').value.trim() || p.name;
+  p.cat    = document.getElementById('ep-cat').value.trim() || p.cat;
+  p.emoji  = document.getElementById('ep-emoji').value || p.emoji;
+  p.color  = document.getElementById('ep-color').value || p.color;
   SIZES.forEach(s => { p.prices[s] = Number(document.getElementById('ep-price-' + s).value) || 0; });
+  p.recipe = getRecipeRows('ep');
   await DB.put('products', p);
   const idx = STATE.products.findIndex(x => x.id === prodId);
   if (idx >= 0) STATE.products[idx] = { ...p };
