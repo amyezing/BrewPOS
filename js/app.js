@@ -205,6 +205,21 @@ async function loadAll() {
     const v = await DB.getSetting(k, DEFAULT_SETTINGS[k]);
     STATE.settings[k] = v;
   }
+  // Also load any extra keys saved in DB not in DEFAULT_SETTINGS (gcashQR, mayaQR, bankQR, customSizes)
+  const extraKeys = ['gcashQR', 'mayaQR', 'bankQR', 'customSizes', 'mayaNumber', 'mayaName'];
+  for (const k of extraKeys) {
+    if (!(k in STATE.settings) || !STATE.settings[k]) {
+      const v = await DB.getSetting(k, '');
+      if (v) STATE.settings[k] = v;
+    }
+  }
+  // Apply custom sizes IMMEDIATELY after loading so SIZES/SIZE_LABELS are correct before render
+  if (STATE.settings.customSizes) {
+    try {
+      const parsed = JSON.parse(STATE.settings.customSizes);
+      if (Array.isArray(parsed) && parsed.length > 0) applySizes(parsed);
+    } catch(e) { console.warn('Invalid customSizes:', e); }
+  }
   // Restore order sequence
   if (STATE.orders.length > 0) {
     orderSeq = Math.max(...STATE.orders.map(o => o.id || 1000)) + 1;
