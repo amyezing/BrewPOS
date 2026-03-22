@@ -1287,16 +1287,34 @@ async function doAdjust(ingId) {
 function showAddIngredientModal() {
   showModal(`
     <div class="modal-title">+ Add Ingredient</div>
-    <div class="modal-label">Name</div><input class="modal-inp" id="ni-name" placeholder="Ingredient name"/>
+    <div class="modal-label">Name</div>
+    <input class="modal-inp" id="ni-name" placeholder="e.g. Fresh Milk"/>
     <div class="modal-label">Category</div>
     <select class="modal-select" id="ni-cat">
       ${['Dairy','Coffee','Dry','Syrup','Topping','Packaging'].map(c=>`<option>${c}</option>`).join('')}
     </select>
-    <div class="modal-label">Unit</div><input class="modal-inp" id="ni-unit" placeholder="g / ml / pcs"/>
-    <div class="modal-label">Current Stock</div><input class="modal-inp" id="ni-stock" type="number" placeholder="0"/>
-    <div class="modal-label">Cost per Unit (₱)</div><input class="modal-inp" id="ni-cost" type="number" placeholder="0.00"/>
-    <div class="modal-label">Reorder Level</div><input class="modal-inp" id="ni-reorder" type="number" placeholder="100"/>
-    <div class="modal-label">Supplier</div><input class="modal-inp" id="ni-supplier" placeholder="Supplier name"/>
+    <div class="modal-label">Unit of Measure</div>
+    <input class="modal-inp" id="ni-unit" placeholder="g / ml / pcs / kg"/>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1">
+        <div class="modal-label">Total Qty Bought</div>
+        <input class="modal-inp" id="ni-stock" type="number" inputmode="decimal"
+          placeholder="e.g. 1000" oninput="calcCostPer('ni')" autocomplete="off"/>
+      </div>
+      <div style="flex:1">
+        <div class="modal-label">Total Cost (₱)</div>
+        <input class="modal-inp" id="ni-total-cost" type="number" inputmode="decimal"
+          placeholder="e.g. 85.00" oninput="calcCostPer('ni')" autocomplete="off"/>
+      </div>
+    </div>
+    <div id="ni-cost-preview" style="background:var(--card);border-radius:8px;padding:10px;
+      margin-top:2px;font-size:13px;color:var(--muted);text-align:center;min-height:38px;">
+      Enter qty &amp; cost to compute cost per unit
+    </div>
+    <div class="modal-label" style="margin-top:8px;">Reorder Level</div>
+    <input class="modal-inp" id="ni-reorder" type="number" placeholder="e.g. 200"/>
+    <div class="modal-label">Supplier</div>
+    <input class="modal-inp" id="ni-supplier" placeholder="Supplier name (optional)"/>
     <div class="modal-btns">
       <button class="modal-btn secondary" onclick="closeModal()">Cancel</button>
       <button class="modal-btn primary" onclick="addIngredient()">Add</button>
@@ -1304,13 +1322,31 @@ function showAddIngredientModal() {
   `);
 }
 
+function calcCostPer(prefix) {
+  const qty = Number(document.getElementById(prefix+'-stock')?.value) || 0;
+  const total = Number(document.getElementById(prefix+'-total-cost')?.value) || 0;
+  const preview = document.getElementById(prefix+'-cost-preview');
+  if (!preview) return;
+  if (qty > 0 && total > 0) {
+    const per = total / qty;
+    const unit = document.getElementById(prefix === 'ni' ? 'ni-unit' : 'ei-unit')?.value || 'unit';
+    preview.innerHTML = `<span style="color:var(--accent);font-weight:700;font-size:15px;">${peso(per)}</span> <span style="color:var(--muted)">per ${unit || 'unit'}</span>`;
+    preview.style.color = 'var(--text)';
+  } else {
+    preview.textContent = 'Enter qty & cost to compute cost per unit';
+  }
+}
+
 async function addIngredient() {
   const name = $('ni-name').value.trim();
   if (!name) return toast('Name required', 'error');
+  const qty = Number($('ni-stock').value) || 0;
+  const totalCost = Number($('ni-total-cost').value) || 0;
+  const costPer = qty > 0 && totalCost > 0 ? totalCost / qty : 0;
   const ing = {
     name, cat: $('ni-cat').value, unit: $('ni-unit').value || 'pcs',
-    stock: Number($('ni-stock').value) || 0,
-    costPer: Number($('ni-cost').value) || 0,
+    stock: qty,
+    costPer: costPer,
     reorder: Number($('ni-reorder').value) || 0,
     supplier: $('ni-supplier').value,
   };
@@ -1820,24 +1856,42 @@ function showEditIngredientModal(ingId) {
   const ing = STATE.ingredients.find(i => i.id === ingId);
   if (!ing) return;
   showModal(`
-    <div class="modal-title">✏️ Edit Ingredient — ${ing.name}</div>
+    <div class="modal-title">✏️ Edit — ${ing.name}</div>
     <div class="modal-label">Name</div>
     <input class="modal-inp" id="ei-name" value="${ing.name}"/>
     <div class="modal-label">Category</div>
     <select class="modal-select" id="ei-cat">
       ${['Dairy','Coffee','Dry','Syrup','Topping','Packaging'].map(c=>`<option ${ing.cat===c?'selected':''}>${c}</option>`).join('')}
     </select>
-    <div class="modal-label">Unit (g / ml / pcs / roll…)</div>
+    <div class="modal-label">Unit of Measure</div>
     <input class="modal-inp" id="ei-unit" value="${ing.unit}"/>
-    <div class="modal-label">Cost per Unit (₱)</div>
-    <input class="modal-inp" id="ei-cost" type="number" step="0.001" value="${ing.costPer}"/>
+    <div style="background:var(--card2);border-radius:10px;padding:10px;margin-bottom:4px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">
+        📦 Restock — enter new purchase to update cost per unit
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1">
+          <div class="modal-label">Qty Bought</div>
+          <input class="modal-inp" id="ei-stock" type="number" inputmode="decimal"
+            placeholder="e.g. 1000" oninput="calcCostPer('ei')" autocomplete="off"/>
+        </div>
+        <div style="flex:1">
+          <div class="modal-label">Total Cost (₱)</div>
+          <input class="modal-inp" id="ei-total-cost" type="number" inputmode="decimal"
+            placeholder="e.g. 85.00" oninput="calcCostPer('ei')" autocomplete="off"/>
+        </div>
+      </div>
+      <div id="ei-cost-preview" style="margin-top:8px;font-size:12px;color:var(--muted);text-align:center;min-height:20px;">
+        Leave blank to keep current cost: <strong style="color:var(--accent)">${peso(ing.costPer)} / ${ing.unit}</strong>
+      </div>
+    </div>
     <div class="modal-label">Reorder Level</div>
     <input class="modal-inp" id="ei-reorder" type="number" value="${ing.reorder}"/>
     <div class="modal-label">Supplier</div>
     <input class="modal-inp" id="ei-supplier" value="${ing.supplier||''}"/>
     <div class="modal-btns">
       <button class="modal-btn secondary" onclick="closeModal()">Cancel</button>
-      <button class="modal-btn primary" onclick="saveEditIngredient(${ingId})">💾 Save Changes</button>
+      <button class="modal-btn primary" onclick="saveEditIngredient(${ingId})">💾 Save</button>
     </div>
   `);
 }
@@ -1848,7 +1902,13 @@ async function saveEditIngredient(ingId) {
   ing.name     = document.getElementById('ei-name').value.trim() || ing.name;
   ing.cat      = document.getElementById('ei-cat').value;
   ing.unit     = document.getElementById('ei-unit').value.trim() || ing.unit;
-  ing.costPer  = Number(document.getElementById('ei-cost').value) || 0;
+  // Only update costPer if new purchase info was entered
+  const newQty = Number(document.getElementById('ei-stock').value) || 0;
+  const newCost = Number(document.getElementById('ei-total-cost').value) || 0;
+  if (newQty > 0 && newCost > 0) {
+    ing.costPer = newCost / newQty;
+    ing.stock = ing.stock + newQty; // add to existing stock
+  }
   ing.reorder  = Number(document.getElementById('ei-reorder').value) || 0;
   ing.supplier = document.getElementById('ei-supplier').value;
   await DB.put('ingredients', ing);
