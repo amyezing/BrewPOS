@@ -967,10 +967,13 @@ async function deductStock(items) {
   for (const item of items) {
     const prod = STATE.products.find(p => p.id === item.id);
     if (!prod || !prod.recipe) continue;
+    const batchYield = prod.batchYield || 1;
     for (const r of prod.recipe) {
       const ing = STATE.ingredients.find(i => i.id === r.ingId);
       if (ing) {
-        ing.stock = Math.max(0, ing.stock - r.qty * item.qty);
+        // Each cup uses recipe qty divided by batch yield
+        const perCup = r.qty / batchYield;
+        ing.stock = Math.max(0, ing.stock - perCup * item.qty);
         await DB.put('ingredients', ing);
       }
     }
@@ -1187,7 +1190,13 @@ async function voidOrder(orderId) {
 function renderInventory(container) {
   container.innerHTML = `
     <div id="inventory-view">
-      <div class="view-title">📦 Inventory</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:8px;">
+        <div class="view-title" style="margin:0">📦 Inventory</div>
+        <button onclick="showBrewPlanner()" style="background:var(--blue);color:#fff;border:none;
+          border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">
+          🧪 Brew Planner
+        </button>
+      </div>
       <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
         <div class="stat-card" style="min-width:140px;">
           <div class="stat-icon">📦</div>
@@ -1853,8 +1862,187 @@ Object.assign(window, {
   kitchenDone, kitchenBump, toggleKitchenItem,
   showAdjustModal, doAdjust, addIngredient, showAddIngredientModal,
   showEditIngredientModal, saveEditIngredient, confirmDeleteIngredient, deleteIngredient,
+
+function showBrewPlanner() {
+  const productsWithRecipe = STATE.products.filter(p => p.recipe && p.recipe.length > 0 && p.active !== false);
+  if (productsWithRecipe.length === 0) {
+    return toast('No products with recipes yet. Add ingredients to a product recipe first!', 'error');
+  }
+  const optionsHtml = productsWithRecipe.map(p => {
+    const by = p.batchYield || 1;
+    const bv = p.batchVolume || '';
+    const cs = p.cupSizeMl || '';
+    const hint = bv && cs ? ` — ${bv}ml batch / ${cs}ml cup = ${by} cups` : ` — ${by} cups/batch`;
+    return `<option value="${p.id}">${p.emoji} ${p.name}${hint}</option>`;
+  }).join('');
+
+  showModal(`
+    <div class="modal-title">🧪 Brew Planner</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+      Tell the app how much you want to brew today — it will tell you exactly what you need.
+    </div>
+
+    <div class="modal-label">Product to Brew</div>
+    <select class="modal-select" id="bp-product" onchange="calcBrewPlan()">
+      <option value="">— Select product —</option>
+      ${optionsHtml}
+    </select>
+
+    <div style="background:var(--card2);border-radius:10px;padding:10px;margin:10px 0;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;">HOW MUCH TO BREW TODAY?</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Volume</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input class="modal-inp" id="bp-vol" type="number" inputmode="decimal"
+              placeholder="e.g. 3" value="1"
+              oninput="calcBrewPlan()"
+              style="width:70px;margin:0;text-align:center;font-size:18px;font-weight:700;"/>
+            <select class="modal-select" id="bp-vol-unit" onchange="calcBrewPlan()"
+              style="padding:8px 6px;font-size:11px;">
+              <option value="1000">L</option>
+              <option value="1">ml</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);padding-bottom:10px;">or</div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Exact cups</div>
+          <input class="modal-inp" id="bp-cups-direct" type="number" inputmode="decimal"
+            placeholder="e.g. 20"
+            oninput="calcBrewPlan()"
+            style="width:80px;margin:0;text-align:center;font-size:18px;font-weight:700;"/>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        ${[1,2,3,5].map(n=>`<button onclick="document.getElementById('bp-vol').value=${n};document.getElementById('bp-cups-direct').value='';calcBrewPlan()"
+          style="background:var(--card);border:1px solid var(--border);border-radius:6px;
+          padding:5px 12px;color:var(--text);font-size:12px;cursor:pointer;">${n}L</button>`).join('')}
+        ${[10,20,30,50].map(n=>`<button onclick="document.getElementById('bp-cups-direct').value=${n};document.getElementById('bp-vol').value='';calcBrewPlan()"
+          style="background:var(--card);border:1px solid var(--border);border-radius:6px;
+          padding:5px 12px;color:var(--text);font-size:12px;cursor:pointer;">${n} cups</button>`).join('')}
+      </div>
+    </div>
+
+    <div id="bp-result" style="background:var(--card);border-radius:10px;padding:12px;min-height:60px;">
+      <div style="color:var(--muted);text-align:center;font-size:12px;padding:16px 0;">Select a product and volume to see the brew plan</div>
+    </div>
+    <div class="modal-btns" style="margin-top:12px;">
+      <button class="modal-btn secondary" onclick="closeModal()">Close</button>
+    </div>
+  `);
+}
+
+function calcBrewPlan() {
+  const prodId = parseInt(document.getElementById('bp-product')?.value);
+  const result = document.getElementById('bp-result');
+  if (!result) return;
+  if (!prodId) {
+    result.innerHTML = '<div style="color:var(--muted);text-align:center;font-size:12px;padding:16px 0;">Select a product first</div>';
+    return;
+  }
+
+  const prod = STATE.products.find(p => p.id === prodId);
+  if (!prod || !prod.recipe || prod.recipe.length === 0) {
+    result.innerHTML = '<div style="color:var(--red);text-align:center;font-size:12px;padding:16px 0;">This product has no recipe yet. Edit the product to add ingredients.</div>';
+    return;
+  }
+
+  const batchYield = prod.batchYield || 1;       // cups per batch
+  const batchVolMl = prod.batchVolume || 1000;   // ml per batch (saved from recipe builder)
+  const cupSizeMl = prod.cupSizeMl || (batchVolMl / batchYield);
+
+  // Determine cups to brew — either from volume input or direct cups
+  const directCups = parseFloat(document.getElementById('bp-cups-direct')?.value) || 0;
+  const vol = parseFloat(document.getElementById('bp-vol')?.value) || 0;
+  const volUnit = parseFloat(document.getElementById('bp-vol-unit')?.value) || 1000;
+  const volMl = vol * volUnit;
+
+  let cupsToMake = 0;
+  let inputMode = '';
+  if (directCups > 0) {
+    cupsToMake = directCups;
+    inputMode = `${directCups} cups`;
+  } else if (volMl > 0) {
+    cupsToMake = volMl / cupSizeMl;
+    inputMode = `${vol}${volUnit===1000?'L':'ml'} → ${cupsToMake.toFixed(1)} cups of ${cupSizeMl.toFixed(0)}ml (${(cupSizeMl/29.5736).toFixed(1)}oz)`;
+  } else {
+    result.innerHTML = '<div style="color:var(--muted);text-align:center;font-size:12px;padding:16px 0;">Enter volume or cups to brew</div>';
+    return;
+  }
+
+  // How many batches needed
+  const batchesNeeded = cupsToMake / batchYield;
+  let totalCost = 0;
+  let hasStockIssue = false;
+
+  const rows = prod.recipe.map(r => {
+    const ing = STATE.ingredients.find(i => i.id === r.ingId);
+    if (!ing) return '';
+    const needed = r.qty * batchesNeeded;
+    const cost = ing.costPer * needed;
+    totalCost += cost;
+    const enough = ing.stock >= needed;
+    if (!enough) hasStockIssue = true;
+    const shortfall = needed - ing.stock;
+    const maxCupsFromStock = ing.stock > 0 ? Math.floor((ing.stock / r.qty) * batchYield) : 0;
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${ing.name}</div>
+          <div style="font-size:10px;color:var(--muted)">
+            In stock: ${ing.stock.toLocaleString()} ${ing.unit}
+            ${enough ? `· Can make up to <strong style="color:var(--green)">${maxCupsFromStock} cups</strong>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:14px;font-weight:700;color:${enough?'var(--text)':'var(--red)'}">
+            ${needed < 1 ? needed.toFixed(2) : needed % 1 === 0 ? needed.toLocaleString() : needed.toFixed(1)} ${ing.unit}
+          </div>
+          <div style="font-size:10px;color:${enough?'var(--green)':'var(--red)'}">
+            ${enough ? '✓ OK' : `⚠️ Need ${shortfall.toFixed(1)} more`}
+          </div>
+        </div>
+        <div style="text-align:right;min-width:52px;flex-shrink:0;">
+          <div style="font-size:11px;color:var(--accent)">${peso(cost)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const costPerCup = cupsToMake > 0 ? totalCost / cupsToMake : 0;
+  const cupsDisplay = cupsToMake % 1 === 0 ? cupsToMake : cupsToMake.toFixed(1);
+
+  result.innerHTML = `
+    <div style="background:var(--card2);border-radius:8px;padding:8px 10px;margin-bottom:10px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text)">${prod.emoji} ${prod.name}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px;">${inputMode}</div>
+      <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;">
+        <span style="font-size:11px;">🧊 <strong style="color:var(--accent)">${cupsDisplay}</strong> cups estimated</span>
+        <span style="font-size:11px;">📦 <strong style="color:var(--text)">${batchesNeeded < 1 ? batchesNeeded.toFixed(2) : batchesNeeded.toFixed(1)}</strong> batches of ${batchYield}</span>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">INGREDIENTS NEEDED</div>
+    ${rows}
+    <div style="display:flex;justify-content:space-between;align-items:center;
+      margin-top:10px;padding-top:8px;border-top:2px solid var(--border);flex-wrap:wrap;gap:6px;">
+      <div>
+        <div style="font-size:11px;color:var(--muted)">Total brew cost</div>
+        <div style="font-size:18px;font-weight:800;color:var(--accent)">${peso(totalCost)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:var(--muted)">Cost per cup</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green)">${peso(costPerCup)}</div>
+      </div>
+    </div>
+    ${hasStockIssue
+      ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(233,69,96,.1);border:1px solid rgba(233,69,96,.3);border-radius:8px;font-size:12px;color:var(--red);">⚠️ Not enough stock for all ingredients. Check items above.</div>`
+      : `<div style="margin-top:8px;padding:8px 12px;background:rgba(46,204,122,.08);border:1px solid rgba(46,204,122,.2);border-radius:8px;font-size:12px;color:var(--green);">✅ You have enough stock to brew ${cupsDisplay} cups!</div>`
+    }`;
+}
+
   renderProductsMgmt, showAddProductModal, saveNewProduct,
   addRecipeRow, removeRecipeRow, updateRecipeCost,
+  showBrewPlanner, calcBrewPlan, calcBatchYield,
   showEditProductModal, saveEditProduct, toggleProductActive,
   confirmDeleteProduct, deleteProduct, selectEmoji, selectColor,
   showCustomerDetail, redeemPoints, renderCustomerCards,
@@ -1992,6 +2180,24 @@ function renderProductsMgmt(container) {
                   <span class="price-cell-val">${peso(p.prices[s]||0)}</span>
                 </div>`).join('')}
             </div>
+            ${(() => {
+              if (!p.recipe || p.recipe.length === 0) return '';
+              const batchYield = p.batchYield || 1;
+              const batchCost = p.recipe.reduce((sum, r) => {
+                const ing = STATE.ingredients.find(i => i.id === r.ingId);
+                return sum + (ing ? ing.costPer * r.qty : 0);
+              }, 0);
+              const costPerCup = batchCost / batchYield;
+              const sellPrice = Math.max(...SIZES.map(s => p.prices[s]||0));
+              const profit = sellPrice - costPerCup;
+              const margin = sellPrice > 0 ? ((profit/sellPrice)*100).toFixed(0) : 0;
+              return `<div style="display:flex;justify-content:space-between;font-size:10px;
+                padding:5px 8px;background:var(--card2);border-radius:6px;margin-top:4px;">
+                <span style="color:var(--muted)">Cost/cup: <strong style="color:var(--text)">${peso(costPerCup)}</strong></span>
+                <span style="color:var(--muted)">Profit: <strong style="color:var(--green)">${peso(profit)}</strong></span>
+                <span style="color:var(--muted)">Margin: <strong style="color:var(--accent)">${margin}%</strong></span>
+              </div>`;
+            })()}
             <div style="display:flex;gap:5px;margin-top:8px;">
               <button class="inv-adjust-btn" style="flex:2;border-color:var(--blue);color:var(--blue)" onclick="showEditProductModal(${p.id})">✏️ Edit</button>
               <button class="inv-adjust-btn" style="flex:1;${p.active===false?'border-color:var(--green);color:var(--green)':'border-color:var(--muted);color:var(--muted)'}" onclick="toggleProductActive(${p.id})">${p.active===false?'Show':'Hide'}</button>
@@ -2051,8 +2257,29 @@ function removeRecipeRow(prefix, idx) {
   updateRecipeCost(prefix);
 }
 
+function calcBatchYield(prefix) {
+  const vol = parseFloat(document.getElementById(prefix+'-batch-vol')?.value) || 0;
+  const volUnit = parseFloat(document.getElementById(prefix+'-batch-vol-unit')?.value) || 1000;
+  const cupSize = parseFloat(document.getElementById(prefix+'-cup-size')?.value) || 0;
+  const cupUnit = parseFloat(document.getElementById(prefix+'-cup-unit')?.value) || 29.5736;
+  const note = document.getElementById(prefix+'-yield-note');
+
+  if (vol > 0 && cupSize > 0) {
+    const volMl = vol * volUnit;
+    const cupMl = cupSize * cupUnit;
+    const cups = volMl / cupMl;
+    const rounded = Math.floor(cups * 10) / 10; // floor to 1 decimal
+    const yieldInp = document.getElementById(prefix+'-batch-yield');
+    if (yieldInp) yieldInp.value = rounded;
+    if (note) note.textContent = `${vol}${volUnit===1000?'L':'ml'} ÷ ${cupSize}${cupUnit===29.5736?'oz':'ml'} = ${rounded} cups (${cupMl.toFixed(0)}ml per cup)`;
+    updateRecipeCost(prefix);
+  } else {
+    if (note) note.textContent = '';
+  }
+}
+
 function updateRecipeCost(prefix) {
-  let totalCost = 0;
+  let batchCost = 0;
   const wrap = document.getElementById(prefix+'-recipe-rows');
   if (!wrap) return;
   wrap.querySelectorAll('.recipe-row').forEach(row => {
@@ -2060,13 +2287,22 @@ function updateRecipeCost(prefix) {
     const qty = parseFloat(row.querySelector('.recipe-qty-inp').value) || 0;
     const ingId = parseInt(sel?.value);
     const ing = STATE.ingredients.find(i => i.id === ingId);
-    if (ing && qty > 0) totalCost += ing.costPer * qty;
+    if (ing && qty > 0) batchCost += ing.costPer * qty;
   });
+  const batchYield = parseFloat(document.getElementById(prefix+'-batch-yield')?.value) || 1;
+  const costPerCup = batchYield > 0 ? batchCost / batchYield : batchCost;
   const el = document.getElementById(prefix+'-recipe-cost');
   if (el) {
-    el.innerHTML = totalCost > 0
-      ? `Ingredient cost: <strong style="color:var(--accent)">${peso(totalCost)}</strong> per serving`
-      : 'Add ingredients to compute cost';
+    if (batchCost > 0) {
+      el.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+          <span>Batch cost: <strong style="color:var(--text)">${peso(batchCost)}</strong></span>
+          <span>Cups: <strong style="color:var(--text)">${batchYield}</strong></span>
+          <span>Cost/cup: <strong style="color:var(--accent);font-size:15px;">${peso(costPerCup)}</strong></span>
+        </div>`;
+    } else {
+      el.textContent = 'Add ingredients to compute cost per cup';
+    }
   }
 }
 
@@ -2117,11 +2353,54 @@ function showAddProductModal() {
       ${SIZES.map(s=>`<div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${SIZE_LABELS[s]||s}</div><input class="modal-inp" id="np-price-${s}" type="number" inputmode="decimal" placeholder="0" style="margin:0;text-align:center;"/></div>`).join('')}
     </div>
 
-    <div class="modal-label">🧪 Recipe (Ingredients used per serving)</div>
+    <div class="modal-label">🧪 Recipe</div>
+    <div style="background:var(--card2);border-radius:10px;padding:10px;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;">📐 BATCH YIELD CALCULATOR</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Batch Volume</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input class="modal-inp" id="np-batch-vol" type="number" inputmode="decimal"
+              placeholder="e.g. 1" oninput="calcBatchYield('np')"
+              style="width:64px;margin:0;text-align:center;"/>
+            <select class="modal-select" id="np-batch-vol-unit" onchange="calcBatchYield('np')"
+              style="padding:8px 6px;font-size:11px;">
+              <option value="1000">L</option>
+              <option value="1">ml</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding-bottom:8px;">÷</div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Cup Size</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input class="modal-inp" id="np-cup-size" type="number" inputmode="decimal"
+              placeholder="e.g. 22" oninput="calcBatchYield('np')"
+              style="width:64px;margin:0;text-align:center;"/>
+            <select class="modal-select" id="np-cup-unit" onchange="calcBatchYield('np')"
+              style="padding:8px 6px;font-size:11px;">
+              <option value="29.5736">oz</option>
+              <option value="1">ml</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding-bottom:8px;">=</div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Cups per Batch</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input class="modal-inp" id="np-batch-yield" type="number" inputmode="decimal"
+              value="1" min="1" oninput="updateRecipeCost('np')"
+              style="width:64px;margin:0;text-align:center;font-size:16px;font-weight:700;color:var(--accent);"/>
+            <span style="font-size:11px;color:var(--muted);">cups</span>
+          </div>
+        </div>
+      </div>
+      <div id="np-yield-note" style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center;"></div>
+    </div>
     <div id="np-recipe-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
     <button onclick="addRecipeRow('np')" class="qr-upload-btn" style="margin-bottom:6px;">+ Add Ingredient</button>
-    <div id="np-recipe-cost" style="font-size:12px;color:var(--muted);text-align:center;padding:6px;
-      background:var(--card);border-radius:8px;margin-bottom:8px;">Add ingredients to compute cost</div>
+    <div id="np-recipe-cost" style="font-size:12px;color:var(--muted);padding:8px;
+      background:var(--card);border-radius:8px;margin-bottom:8px;">Add ingredients to compute cost per cup</div>
 
     <div class="modal-btns">
       <button class="modal-btn secondary" onclick="closeModal()">Cancel</button>
@@ -2145,6 +2424,9 @@ async function saveNewProduct() {
     prices,
     active: true,
     recipe: getRecipeRows('np'),
+    batchYield: parseFloat(document.getElementById('np-batch-yield')?.value) || 1,
+    batchVolume: (parseFloat(document.getElementById('np-batch-vol')?.value)||0) * (parseFloat(document.getElementById('np-batch-vol-unit')?.value)||1000),
+    cupSizeMl: (parseFloat(document.getElementById('np-cup-size')?.value)||0) * (parseFloat(document.getElementById('np-cup-unit')?.value)||29.5736),
   };
   await DB.put('products', prod);
   STATE.products.push(prod);
@@ -2195,12 +2477,55 @@ function showEditProductModal(prodId) {
       ${SIZES.map(s=>`<div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">${SIZE_LABELS[s]||s}</div><input class="modal-inp" id="ep-price-${s}" type="number" inputmode="decimal" value="${p.prices[s]||0}" style="margin:0;text-align:center;"/></div>`).join('')}
     </div>
 
-    <div class="modal-label">🧪 Recipe (Ingredients per serving)</div>
+    <div class="modal-label">🧪 Recipe</div>
+    <div style="background:var(--card2);border-radius:10px;padding:10px;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;">📐 BATCH YIELD CALCULATOR</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Batch Volume</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input class="modal-inp" id="ep-batch-vol" type="number" inputmode="decimal"
+              placeholder="e.g. 1" oninput="calcBatchYield('ep')"
+              style="width:64px;margin:0;text-align:center;"/>
+            <select class="modal-select" id="ep-batch-vol-unit" onchange="calcBatchYield('ep')"
+              style="padding:8px 6px;font-size:11px;">
+              <option value="1000">L</option>
+              <option value="1">ml</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding-bottom:8px;">÷</div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Cup Size</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input class="modal-inp" id="ep-cup-size" type="number" inputmode="decimal"
+              placeholder="e.g. 22" oninput="calcBatchYield('ep')"
+              style="width:64px;margin:0;text-align:center;"/>
+            <select class="modal-select" id="ep-cup-unit" onchange="calcBatchYield('ep')"
+              style="padding:8px 6px;font-size:11px;">
+              <option value="29.5736">oz</option>
+              <option value="1">ml</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:18px;color:var(--muted);padding-bottom:8px;">=</div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Cups per Batch</div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <input class="modal-inp" id="ep-batch-yield" type="number" inputmode="decimal"
+              value="${p.batchYield||1}" min="1" oninput="updateRecipeCost('ep')"
+              style="width:64px;margin:0;text-align:center;font-size:16px;font-weight:700;color:var(--accent);"/>
+            <span style="font-size:11px;color:var(--muted);">cups</span>
+          </div>
+        </div>
+      </div>
+      <div id="ep-yield-note" style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center;"></div>
+    </div>
     <div id="ep-recipe-rows" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;"></div>
     <button onclick="addRecipeRow('ep')" class="qr-upload-btn" style="margin-bottom:6px;">+ Add Ingredient</button>
-    <div id="ep-recipe-cost" style="font-size:12px;color:var(--muted);text-align:center;padding:6px;
+    <div id="ep-recipe-cost" style="font-size:12px;color:var(--muted);padding:8px;
       background:var(--card);border-radius:8px;margin-bottom:8px;">
-      ${currentCost > 0 ? `Current cost: <strong style="color:var(--accent)">${peso(currentCost)}</strong> per serving` : 'Add ingredients to compute cost'}
+      ${currentCost > 0 ? `Batch cost: <strong style="color:var(--text)">${peso(currentCost * (p.batchYield||1))}</strong> · Cost/cup: <strong style="color:var(--accent)">${peso(currentCost)}</strong>` : 'Add ingredients to compute cost per cup'}
     </div>
 
     <div class="modal-btns">
@@ -2223,6 +2548,13 @@ async function saveEditProduct(prodId) {
   p.color  = document.getElementById('ep-color').value || p.color;
   SIZES.forEach(s => { p.prices[s] = Number(document.getElementById('ep-price-' + s).value) || 0; });
   p.recipe = getRecipeRows('ep');
+  p.batchYield = parseFloat(document.getElementById('ep-batch-yield')?.value) || 1;
+  const epBatchVol = parseFloat(document.getElementById('ep-batch-vol')?.value)||0;
+  const epBatchVolUnit = parseFloat(document.getElementById('ep-batch-vol-unit')?.value)||1000;
+  const epCupSize = parseFloat(document.getElementById('ep-cup-size')?.value)||0;
+  const epCupUnit = parseFloat(document.getElementById('ep-cup-unit')?.value)||29.5736;
+  if (epBatchVol > 0) p.batchVolume = epBatchVol * epBatchVolUnit;
+  if (epCupSize > 0) p.cupSizeMl = epCupSize * epCupUnit;
   await DB.put('products', p);
   const idx = STATE.products.findIndex(x => x.id === prodId);
   if (idx >= 0) STATE.products[idx] = { ...p };
