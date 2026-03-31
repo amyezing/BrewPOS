@@ -1868,181 +1868,307 @@ function showBrewPlanner() {
   if (productsWithRecipe.length === 0) {
     return toast('No products with recipes yet. Add ingredients to a product recipe first!', 'error');
   }
-  const optionsHtml = productsWithRecipe.map(p => {
-    const by = p.batchYield || 1;
-    const bv = p.batchVolume || '';
-    const cs = p.cupSizeMl || '';
-    const hint = bv && cs ? ` — ${bv}ml batch / ${cs}ml cup = ${by} cups` : ` — ${by} cups/batch`;
-    return `<option value="${p.id}">${p.emoji} ${p.name}${hint}</option>`;
-  }).join('');
+
+  // Initialize planner state
+  window._brewPlan = {
+    mode: 'day', // 'day' or 'week'
+    days: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    // plan[prodId][dayIdx] = { vol, volUnit }
+    plan: {}
+  };
+  productsWithRecipe.forEach(p => { window._brewPlan.plan[p.id] = {}; });
+
+  const prodOptions = productsWithRecipe.map(p =>
+    `<option value="${p.id}">${p.emoji} ${p.name}</option>`
+  ).join('');
 
   showModal(`
-    <div class="modal-title">🧪 Brew Planner</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-      Tell the app how much you want to brew today — it will tell you exactly what you need.
+    <div class="modal-title">📅 Brew Planner</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="bp-tab-day" onclick="setBrewMode('day')"
+        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--accent);
+        background:var(--accent);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">
+        ☀️ Day Plan
+      </button>
+      <button id="bp-tab-week" onclick="setBrewMode('week')"
+        style="flex:1;padding:8px;border-radius:8px;border:1.5px solid var(--border);
+        background:var(--card);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;">
+        📅 Weekly Plan
+      </button>
     </div>
 
-    <div class="modal-label">Product to Brew</div>
-    <select class="modal-select" id="bp-product" onchange="calcBrewPlan()">
-      <option value="">— Select product —</option>
-      ${optionsHtml}
-    </select>
+    <!-- DAY PLAN -->
+    <div id="bp-day-view">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Add products and volumes for today:</div>
+      <div id="bp-day-rows" style="display:flex;flex-direction:column;gap:6px;"></div>
+      <button onclick="addBrewRow()"
+        style="width:100%;padding:8px;background:var(--card);border:1.5px dashed var(--border);
+        border-radius:8px;color:var(--muted);font-size:12px;cursor:pointer;margin-top:6px;">
+        + Add Product
+      </button>
+    </div>
 
-    <div style="background:var(--card2);border-radius:10px;padding:10px;margin:10px 0;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:600;">HOW MUCH TO BREW TODAY?</div>
-      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Volume</div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <input class="modal-inp" id="bp-vol" type="number" inputmode="decimal"
-              placeholder="e.g. 3" value="1"
-              oninput="calcBrewPlan()"
-              style="width:70px;margin:0;text-align:center;font-size:18px;font-weight:700;"/>
-            <select class="modal-select" id="bp-vol-unit" onchange="calcBrewPlan()"
-              style="padding:8px 6px;font-size:11px;">
-              <option value="1000">L</option>
-              <option value="1">ml</option>
-            </select>
-          </div>
-        </div>
-        <div style="font-size:12px;color:var(--muted);padding-bottom:10px;">or</div>
-        <div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">Exact cups</div>
-          <input class="modal-inp" id="bp-cups-direct" type="number" inputmode="decimal"
-            placeholder="e.g. 20"
-            oninput="calcBrewPlan()"
-            style="width:80px;margin:0;text-align:center;font-size:18px;font-weight:700;"/>
-        </div>
+    <!-- WEEK PLAN -->
+    <div id="bp-week-view" style="display:none;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Enter liters to brew per product per day:</div>
+      <div style="overflow-x:auto;">
+        <table id="bp-week-table" style="width:100%;border-collapse:collapse;font-size:11px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:600;min-width:100px;">Product</th>
+              ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`
+                <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;min-width:52px;">${d}</th>
+              `).join('')}
+            </tr>
+          </thead>
+          <tbody id="bp-week-body">
+            ${productsWithRecipe.map(p => `
+              <tr>
+                <td style="padding:4px 8px;color:var(--text);font-size:12px;">${p.emoji} ${p.name}</td>
+                ${[0,1,2,3,4,5,6].map(d => `
+                  <td style="padding:2px;">
+                    <input type="number" inputmode="decimal" placeholder="—"
+                      id="bw-${p.id}-${d}"
+                      oninput="calcBrewPlan()"
+                      style="width:52px;background:var(--input);border:1px solid var(--border);
+                      border-radius:6px;padding:5px 4px;color:var(--text);font-size:12px;
+                      text-align:center;outline:none;"/>
+                  </td>
+                `).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        ${[1,2,3,5].map(n=>`<button onclick="document.getElementById('bp-vol').value=${n};document.getElementById('bp-cups-direct').value='';calcBrewPlan()"
-          style="background:var(--card);border:1px solid var(--border);border-radius:6px;
-          padding:5px 12px;color:var(--text);font-size:12px;cursor:pointer;">${n}L</button>`).join('')}
-        ${[10,20,30,50].map(n=>`<button onclick="document.getElementById('bp-cups-direct').value=${n};document.getElementById('bp-vol').value='';calcBrewPlan()"
-          style="background:var(--card);border:1px solid var(--border);border-radius:6px;
-          padding:5px 12px;color:var(--text);font-size:12px;cursor:pointer;">${n} cups</button>`).join('')}
-      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;">Enter liters (L) per day. Leave blank = not brewing.</div>
     </div>
 
-    <div id="bp-result" style="background:var(--card);border-radius:10px;padding:12px;min-height:60px;">
-      <div style="color:var(--muted);text-align:center;font-size:12px;padding:16px 0;">Select a product and volume to see the brew plan</div>
+    <div id="bp-result" style="background:var(--card);border-radius:10px;padding:12px;
+      margin-top:10px;min-height:60px;">
+      <div style="color:var(--muted);text-align:center;font-size:12px;padding:8px 0;">
+        Add products above to see your brew plan
+      </div>
     </div>
-    <div class="modal-btns" style="margin-top:12px;">
+    <div class="modal-btns" style="margin-top:10px;">
       <button class="modal-btn secondary" onclick="closeModal()">Close</button>
     </div>
   `);
+
+  // Add first row for day plan
+  addBrewRow();
+}
+
+function setBrewMode(mode) {
+  window._brewPlan.mode = mode;
+  document.getElementById('bp-day-view').style.display = mode === 'day' ? 'block' : 'none';
+  document.getElementById('bp-week-view').style.display = mode === 'week' ? 'block' : 'none';
+  const dayBtn = document.getElementById('bp-tab-day');
+  const weekBtn = document.getElementById('bp-tab-week');
+  if (mode === 'day') {
+    dayBtn.style.background = 'var(--accent)'; dayBtn.style.color = '#fff'; dayBtn.style.borderColor = 'var(--accent)';
+    weekBtn.style.background = 'var(--card)'; weekBtn.style.color = 'var(--muted)'; weekBtn.style.borderColor = 'var(--border)';
+  } else {
+    weekBtn.style.background = 'var(--accent)'; weekBtn.style.color = '#fff'; weekBtn.style.borderColor = 'var(--accent)';
+    dayBtn.style.background = 'var(--card)'; dayBtn.style.color = 'var(--muted)'; dayBtn.style.borderColor = 'var(--border)';
+  }
+  calcBrewPlan();
+}
+
+function addBrewRow() {
+  const container = document.getElementById('bp-day-rows');
+  if (!container) return;
+  const idx = container.children.length;
+  const productsWithRecipe = STATE.products.filter(p => p.recipe && p.recipe.length > 0 && p.active !== false);
+  const options = productsWithRecipe.map(p => `<option value="${p.id}">${p.emoji} ${p.name}</option>`).join('');
+  const row = document.createElement('div');
+  row.id = 'bp-row-' + idx;
+  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.innerHTML = `
+    <select class="modal-select" id="bp-prod-${idx}" onchange="calcBrewPlan()"
+      style="flex:1;font-size:12px;padding:8px;">
+      <option value="">— Product —</option>
+      ${options}
+    </select>
+    <input type="number" inputmode="decimal" id="bp-vol-${idx}"
+      placeholder="L" oninput="calcBrewPlan()"
+      style="width:60px;background:var(--input);border:1.5px solid var(--border);
+      border-radius:8px;padding:8px 6px;color:var(--text);font-size:14px;
+      font-weight:700;text-align:center;outline:none;"/>
+    <span style="font-size:11px;color:var(--muted);flex-shrink:0;">L</span>
+    <button onclick="document.getElementById('bp-row-${idx}').remove();calcBrewPlan()"
+      style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 4px;">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function getBrewPlanEntries() {
+  // Returns array of { prod, liters, label } 
+  const mode = window._brewPlan?.mode || 'day';
+  const entries = []; // { prod, liters, dayLabel }
+
+  if (mode === 'day') {
+    const container = document.getElementById('bp-day-rows');
+    if (!container) return [];
+    container.querySelectorAll('[id^="bp-row-"]').forEach((row, i) => {
+      const prodId = parseInt(row.querySelector('[id^="bp-prod-"]')?.value);
+      const liters = parseFloat(row.querySelector('[id^="bp-vol-"]')?.value) || 0;
+      const prod = STATE.products.find(p => p.id === prodId);
+      if (prod && liters > 0) entries.push({ prod, liters, dayLabel: 'Today' });
+    });
+  } else {
+    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const productsWithRecipe = STATE.products.filter(p => p.recipe && p.recipe.length > 0);
+    productsWithRecipe.forEach(prod => {
+      days.forEach((day, d) => {
+        const val = parseFloat(document.getElementById(`bw-${prod.id}-${d}`)?.value) || 0;
+        if (val > 0) entries.push({ prod, liters: val, dayLabel: day });
+      });
+    });
+  }
+  return entries;
 }
 
 function calcBrewPlan() {
-  const prodId = parseInt(document.getElementById('bp-product')?.value);
   const result = document.getElementById('bp-result');
   if (!result) return;
-  if (!prodId) {
-    result.innerHTML = '<div style="color:var(--muted);text-align:center;font-size:12px;padding:16px 0;">Select a product first</div>';
+
+  const entries = getBrewPlanEntries();
+  if (entries.length === 0) {
+    result.innerHTML = '<div style="color:var(--muted);text-align:center;font-size:12px;padding:8px 0;">Add products and volumes to see your plan</div>';
     return;
   }
 
-  const prod = STATE.products.find(p => p.id === prodId);
-  if (!prod || !prod.recipe || prod.recipe.length === 0) {
-    result.innerHTML = '<div style="color:var(--red);text-align:center;font-size:12px;padding:16px 0;">This product has no recipe yet. Edit the product to add ingredients.</div>';
-    return;
-  }
+  const mode = window._brewPlan?.mode || 'day';
 
-  const batchYield = prod.batchYield || 1;       // cups per batch
-  const batchVolMl = prod.batchVolume || 1000;   // ml per batch (saved from recipe builder)
-  const cupSizeMl = prod.cupSizeMl || (batchVolMl / batchYield);
+  // Aggregate ingredients needed across all entries
+  const ingNeeded = {}; // ingId -> { ing, totalQty, totalCost }
+  let totalBrewCost = 0;
+  let totalCups = 0;
+  let totalRevenue = 0;
 
-  // Determine cups to brew — either from volume input or direct cups
-  const directCups = parseFloat(document.getElementById('bp-cups-direct')?.value) || 0;
-  const vol = parseFloat(document.getElementById('bp-vol')?.value) || 0;
-  const volUnit = parseFloat(document.getElementById('bp-vol-unit')?.value) || 1000;
-  const volMl = vol * volUnit;
+  // Per-day summary for week mode
+  const dayTotals = {}; // dayLabel -> { cups, cost, revenue }
 
-  let cupsToMake = 0;
-  let inputMode = '';
-  if (directCups > 0) {
-    cupsToMake = directCups;
-    inputMode = `${directCups} cups`;
-  } else if (volMl > 0) {
-    cupsToMake = volMl / cupSizeMl;
-    inputMode = `${vol}${volUnit===1000?'L':'ml'} → ${cupsToMake.toFixed(1)} cups of ${cupSizeMl.toFixed(0)}ml (${(cupSizeMl/29.5736).toFixed(1)}oz)`;
-  } else {
-    result.innerHTML = '<div style="color:var(--muted);text-align:center;font-size:12px;padding:16px 0;">Enter volume or cups to brew</div>';
-    return;
-  }
+  entries.forEach(({ prod, liters, dayLabel }) => {
+    const batchVolMl = prod.batchVolume || 1000;
+    const batchYield = prod.batchYield || 1;
+    const cupSizeMl = prod.cupSizeMl || (batchVolMl / batchYield);
+    const volMl = liters * 1000;
+    const cups = volMl / cupSizeMl;
+    const batchesNeeded = cups / batchYield;
+    const avgPrice = SIZES.reduce((s,sz) => s + (prod.prices[sz]||0), 0) / SIZES.filter(sz => (prod.prices[sz]||0) > 0).length || 0;
+    const dayRevenue = cups * avgPrice;
 
-  // How many batches needed
-  const batchesNeeded = cupsToMake / batchYield;
-  let totalCost = 0;
-  let hasStockIssue = false;
+    totalCups += cups;
+    totalRevenue += dayRevenue;
 
-  const rows = prod.recipe.map(r => {
-    const ing = STATE.ingredients.find(i => i.id === r.ingId);
-    if (!ing) return '';
-    const needed = r.qty * batchesNeeded;
-    const cost = ing.costPer * needed;
-    totalCost += cost;
-    const enough = ing.stock >= needed;
-    if (!enough) hasStockIssue = true;
-    const shortfall = needed - ing.stock;
-    const maxCupsFromStock = ing.stock > 0 ? Math.floor((ing.stock / r.qty) * batchYield) : 0;
-    return `
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;color:var(--text)">${ing.name}</div>
-          <div style="font-size:10px;color:var(--muted)">
-            In stock: ${ing.stock.toLocaleString()} ${ing.unit}
-            ${enough ? `· Can make up to <strong style="color:var(--green)">${maxCupsFromStock} cups</strong>` : ''}
+    if (!dayTotals[dayLabel]) dayTotals[dayLabel] = { cups: 0, cost: 0, revenue: 0 };
+    dayTotals[dayLabel].cups += cups;
+    dayTotals[dayLabel].revenue += dayRevenue;
+
+    // Accumulate ingredients
+    (prod.recipe || []).forEach(r => {
+      const ing = STATE.ingredients.find(i => i.id === r.ingId);
+      if (!ing) return;
+      const needed = r.qty * batchesNeeded;
+      const cost = ing.costPer * needed;
+      totalBrewCost += cost;
+      dayTotals[dayLabel].cost += cost;
+      if (!ingNeeded[ing.id]) ingNeeded[ing.id] = { ing, totalQty: 0, totalCost: 0 };
+      ingNeeded[ing.id].totalQty += needed;
+      ingNeeded[ing.id].totalCost += cost;
+    });
+  });
+
+  const totalProfit = totalRevenue - totalBrewCost;
+  const breakEvenCups = totalRevenue > 0 ? Math.ceil((totalBrewCost / totalRevenue) * totalCups) : 0;
+  const hasStockIssue = Object.values(ingNeeded).some(v => v.ing.stock < v.totalQty);
+
+  // Day summary rows (week mode)
+  const daySummaryHtml = mode === 'week' ? `
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;">DAILY BREAKDOWN</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;">
+        ${Object.entries(dayTotals).map(([day, d]) => `
+          <div style="background:var(--card2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:11px;font-weight:700;color:var(--accent)">${day}</div>
+            <div style="font-size:12px;color:var(--text);margin-top:2px;">${d.cups.toFixed(0)} cups</div>
+            <div style="font-size:10px;color:var(--muted);">${peso(d.cost)} cost</div>
+            <div style="font-size:10px;color:var(--green);">${peso(d.revenue)} rev</div>
           </div>
+        `).join('')}
+      </div>
+    </div>` : '';
+
+  // Ingredient rows
+  const ingRows = Object.values(ingNeeded).map(({ ing, totalQty, totalCost }) => {
+    const enough = ing.stock >= totalQty;
+    const shortfall = totalQty - ing.stock;
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${ing.name}</div>
+          <div style="font-size:10px;color:var(--muted)">Stock: ${ing.stock.toLocaleString()} ${ing.unit}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;">
-          <div style="font-size:14px;font-weight:700;color:${enough?'var(--text)':'var(--red)'}">
-            ${needed < 1 ? needed.toFixed(2) : needed % 1 === 0 ? needed.toLocaleString() : needed.toFixed(1)} ${ing.unit}
+          <div style="font-size:13px;font-weight:700;color:${enough?'var(--text)':'var(--red)'}">
+            ${totalQty < 1 ? totalQty.toFixed(2) : totalQty % 1 === 0 ? totalQty.toLocaleString() : totalQty.toFixed(1)} ${ing.unit}
           </div>
           <div style="font-size:10px;color:${enough?'var(--green)':'var(--red)'}">
-            ${enough ? '✓ OK' : `⚠️ Need ${shortfall.toFixed(1)} more`}
+            ${enough ? '✓ In stock' : `⚠️ Need ${shortfall.toFixed(1)} more`}
           </div>
         </div>
-        <div style="text-align:right;min-width:52px;flex-shrink:0;">
-          <div style="font-size:11px;color:var(--accent)">${peso(cost)}</div>
+        <div style="min-width:52px;text-align:right;flex-shrink:0;">
+          <div style="font-size:11px;color:var(--accent)">${peso(totalCost)}</div>
         </div>
       </div>`;
   }).join('');
 
-  const costPerCup = cupsToMake > 0 ? totalCost / cupsToMake : 0;
-  const cupsDisplay = cupsToMake % 1 === 0 ? cupsToMake : cupsToMake.toFixed(1);
-
   result.innerHTML = `
-    <div style="background:var(--card2);border-radius:8px;padding:8px 10px;margin-bottom:10px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text)">${prod.emoji} ${prod.name}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:2px;">${inputMode}</div>
-      <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap;">
-        <span style="font-size:11px;">🧊 <strong style="color:var(--accent)">${cupsDisplay}</strong> cups estimated</span>
-        <span style="font-size:11px;">📦 <strong style="color:var(--text)">${batchesNeeded < 1 ? batchesNeeded.toFixed(2) : batchesNeeded.toFixed(1)}</strong> batches of ${batchYield}</span>
+    ${daySummaryHtml}
+    <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">
+      🧂 TOTAL INGREDIENTS NEEDED ${mode === 'week' ? 'THIS WEEK' : 'TODAY'}
+    </div>
+    ${ingRows}
+
+    <!-- Summary cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;">
+      <div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--muted);">Est. cups</div>
+        <div style="font-size:22px;font-weight:800;color:var(--blue)">${totalCups.toFixed(0)}</div>
+      </div>
+      <div style="background:var(--card2);border-radius:10px;padding:10px;text-align:center;">
+        <div style="font-size:10px;color:var(--muted);">Brew cost</div>
+        <div style="font-size:22px;font-weight:800;color:var(--accent)">${peso(totalBrewCost)}</div>
       </div>
     </div>
-    <div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;">INGREDIENTS NEEDED</div>
-    ${rows}
-    <div style="display:flex;justify-content:space-between;align-items:center;
-      margin-top:10px;padding-top:8px;border-top:2px solid var(--border);flex-wrap:wrap;gap:6px;">
-      <div>
-        <div style="font-size:11px;color:var(--muted)">Total brew cost</div>
-        <div style="font-size:18px;font-weight:800;color:var(--accent)">${peso(totalCost)}</div>
+
+    <!-- Best/Worst case -->
+    <div style="background:var(--card2);border-radius:10px;padding:12px;margin-top:8px;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px;">SCENARIO ANALYSIS</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--green);">✅ Best case (all sold)</span>
+        <strong style="color:var(--green);">+${peso(totalProfit)} profit</strong>
       </div>
-      <div style="text-align:right;">
-        <div style="font-size:11px;color:var(--muted)">Cost per cup</div>
-        <div style="font-size:18px;font-weight:800;color:var(--green)">${peso(costPerCup)}</div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--red);">❌ Worst case (none sold)</span>
+        <strong style="color:var(--red);">-${peso(totalBrewCost)} loss</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;">
+        <span style="font-size:12px;color:var(--muted);">⚖️ Break even at</span>
+        <strong style="color:var(--text);">${breakEvenCups} cups sold</strong>
       </div>
     </div>
+
     ${hasStockIssue
-      ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(233,69,96,.1);border:1px solid rgba(233,69,96,.3);border-radius:8px;font-size:12px;color:var(--red);">⚠️ Not enough stock for all ingredients. Check items above.</div>`
-      : `<div style="margin-top:8px;padding:8px 12px;background:rgba(46,204,122,.08);border:1px solid rgba(46,204,122,.2);border-radius:8px;font-size:12px;color:var(--green);">✅ You have enough stock to brew ${cupsDisplay} cups!</div>`
+      ? `<div style="margin-top:8px;padding:8px 12px;background:rgba(233,69,96,.1);border:1px solid rgba(233,69,96,.3);border-radius:8px;font-size:12px;color:var(--red);">⚠️ Some ingredients need restocking before this plan is possible.</div>`
+      : `<div style="margin-top:8px;padding:8px 12px;background:rgba(46,204,122,.08);border:1px solid rgba(46,204,122,.2);border-radius:8px;font-size:12px;color:var(--green);">✅ You have enough stock for this entire plan!</div>`
     }`;
 }
 
   renderProductsMgmt, showAddProductModal, saveNewProduct,
   addRecipeRow, removeRecipeRow, updateRecipeCost,
-  showBrewPlanner, calcBrewPlan, calcBatchYield,
+  showBrewPlanner, calcBrewPlan, calcBatchYield, setBrewMode, addBrewRow,
   showEditProductModal, saveEditProduct, toggleProductActive,
   confirmDeleteProduct, deleteProduct, selectEmoji, selectColor,
   showCustomerDetail, redeemPoints, renderCustomerCards,
