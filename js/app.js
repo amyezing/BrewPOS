@@ -1862,6 +1862,7 @@ Object.assign(window, {
   kitchenDone, kitchenBump, toggleKitchenItem,
   showAdjustModal, doAdjust, addIngredient, showAddIngredientModal,
   showEditIngredientModal, saveEditIngredient, confirmDeleteIngredient, deleteIngredient,
+});
 
 function showBrewPlanner() {
   const productsWithRecipe = STATE.products.filter(p => p.recipe && p.recipe.length > 0 && p.active !== false);
@@ -2166,6 +2167,7 @@ function calcBrewPlan() {
     }`;
 }
 
+Object.assign(window, {
   renderProductsMgmt, showAddProductModal, saveNewProduct,
   addRecipeRow, removeRecipeRow, updateRecipeCost,
   showBrewPlanner, calcBrewPlan, calcBatchYield, setBrewMode, addBrewRow,
@@ -2173,7 +2175,7 @@ function calcBrewPlan() {
   confirmDeleteProduct, deleteProduct, selectEmoji, selectColor,
   showCustomerDetail, redeemPoints, renderCustomerCards,
   saveSettings, toggleSetting, togglePinEnabled, togglePinVisibility,
-  pinKey, lockApp, showPinModal,
+  pinKey, lockApp, showPinModal, onCashInput, clearCashIn, updateChange,
   confirmClearData, clearAllData,
   closeModal,
 });
