@@ -1925,14 +1925,25 @@ function showBrewPlanner() {
           <tbody id="bp-week-body">
             ${productsWithRecipe.map(p => `
               <tr>
-                <td style="padding:4px 8px;color:var(--text);font-size:12px;">${p.emoji} ${p.name}</td>
+                <td style="padding:4px 8px;color:var(--text);font-size:11px;min-width:90px;">
+                  <div>${p.emoji} ${p.name}</div>
+                  <select id="bw-fill-${p.id}" onchange="calcBrewPlan()"
+                    style="background:var(--input);border:1px solid var(--border);border-radius:5px;
+                    padding:3px 4px;color:var(--text);font-size:10px;margin-top:3px;width:100%;">
+                    <option value="130">12oz</option>
+                    <option value="150">16oz</option>
+                    <option value="180" selected>20oz</option>
+                    <option value="200">22oz</option>
+                    <option value="240">24oz</option>
+                  </select>
+                </td>
                 ${[0,1,2,3,4,5,6].map(d => `
                   <td style="padding:2px;">
                     <input type="number" inputmode="decimal" placeholder="—"
                       id="bw-${p.id}-${d}"
                       oninput="calcBrewPlan()"
-                      style="width:52px;background:var(--input);border:1px solid var(--border);
-                      border-radius:6px;padding:5px 4px;color:var(--text);font-size:12px;
+                      style="width:48px;background:var(--input);border:1px solid var(--border);
+                      border-radius:6px;padding:5px 3px;color:var(--text);font-size:12px;
                       text-align:center;outline:none;"/>
                   </td>
                 `).join('')}
@@ -1983,23 +1994,64 @@ function addBrewRow() {
   const options = productsWithRecipe.map(p => `<option value="${p.id}">${p.emoji} ${p.name}</option>`).join('');
   const row = document.createElement('div');
   row.id = 'bp-row-' + idx;
-  row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+  row.style.cssText = 'background:var(--card2);border-radius:10px;padding:8px;margin-bottom:4px;';
   row.innerHTML = `
-    <select class="modal-select" id="bp-prod-${idx}" onchange="calcBrewPlan()"
-      style="flex:1;font-size:12px;padding:8px;">
-      <option value="">— Product —</option>
-      ${options}
-    </select>
-    <input type="number" inputmode="decimal" id="bp-vol-${idx}"
-      placeholder="L" oninput="calcBrewPlan()"
-      style="width:60px;background:var(--input);border:1.5px solid var(--border);
-      border-radius:8px;padding:8px 6px;color:var(--text);font-size:14px;
-      font-weight:700;text-align:center;outline:none;"/>
-    <span style="font-size:11px;color:var(--muted);flex-shrink:0;">L</span>
-    <button onclick="document.getElementById('bp-row-${idx}').remove();calcBrewPlan()"
-      style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 4px;">✕</button>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+      <select class="modal-select" id="bp-prod-${idx}" onchange="calcBrewPlan()"
+        style="flex:1;font-size:12px;padding:7px;">
+        <option value="">— Select Product —</option>
+        ${options}
+      </select>
+      <button onclick="document.getElementById('bp-row-${idx}').remove();calcBrewPlan()"
+        style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 6px;">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Brew Volume</div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <input type="number" inputmode="decimal" id="bp-vol-${idx}"
+            placeholder="e.g. 10" oninput="calcBrewPlan()"
+            style="width:64px;background:var(--input);border:1.5px solid var(--border);
+            border-radius:7px;padding:6px;color:var(--text);font-size:14px;
+            font-weight:700;text-align:center;outline:none;"/>
+          <span style="font-size:11px;color:var(--muted);">L</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Cup Size</div>
+        <select id="bp-cupsize-${idx}" onchange="calcBrewPlan()"
+          style="background:var(--input);border:1.5px solid var(--border);border-radius:7px;
+          padding:6px;color:var(--text);font-size:12px;outline:none;">
+          <option value="130">12oz (130ml fill)</option>
+          <option value="150">16oz (150ml fill)</option>
+          <option value="180" selected>20oz (180ml fill)</option>
+          <option value="200">22oz (200ml fill)</option>
+          <option value="240">24oz (240ml fill)</option>
+          <option value="custom">Custom...</option>
+        </select>
+      </div>
+      <div id="bp-custom-wrap-${idx}" style="display:none;">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:2px;">Fill ml/cup</div>
+        <input type="number" inputmode="decimal" id="bp-custom-${idx}"
+          placeholder="ml" oninput="calcBrewPlan()"
+          style="width:64px;background:var(--input);border:1.5px solid var(--border);
+          border-radius:7px;padding:6px;color:var(--text);font-size:13px;
+          text-align:center;outline:none;"/>
+      </div>
+      <div id="bp-row-result-${idx}" style="font-size:11px;color:var(--accent);font-weight:600;
+        align-self:flex-end;padding-bottom:4px;"></div>
+    </div>
   `;
   container.appendChild(row);
+  // Handle custom cup size toggle
+  const cupSel = document.getElementById('bp-cupsize-'+idx);
+  if (cupSel) {
+    cupSel.addEventListener('change', function() {
+      const wrap = document.getElementById('bp-custom-wrap-'+idx);
+      if (wrap) wrap.style.display = this.value === 'custom' ? 'block' : 'none';
+      calcBrewPlan();
+    });
+  }
 }
 
 function getBrewPlanEntries() {
@@ -2011,18 +2063,29 @@ function getBrewPlanEntries() {
     const container = document.getElementById('bp-day-rows');
     if (!container) return [];
     container.querySelectorAll('[id^="bp-row-"]').forEach((row, i) => {
-      const prodId = parseInt(row.querySelector('[id^="bp-prod-"]')?.value);
-      const liters = parseFloat(row.querySelector('[id^="bp-vol-"]')?.value) || 0;
+      const idx = row.id.replace('bp-row-','');
+      const prodId = parseInt(document.getElementById('bp-prod-'+idx)?.value);
+      const liters = parseFloat(document.getElementById('bp-vol-'+idx)?.value) || 0;
+      const cupSizeSel = document.getElementById('bp-cupsize-'+idx);
+      let fillMl = parseFloat(cupSizeSel?.value) || 180;
+      if (cupSizeSel?.value === 'custom') {
+        fillMl = parseFloat(document.getElementById('bp-custom-'+idx)?.value) || 180;
+      }
       const prod = STATE.products.find(p => p.id === prodId);
-      if (prod && liters > 0) entries.push({ prod, liters, dayLabel: 'Today' });
+      if (prod && liters > 0) entries.push({ prod, liters, fillMl, dayLabel: 'Today' });
     });
   } else {
     const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
     const productsWithRecipe = STATE.products.filter(p => p.recipe && p.recipe.length > 0);
     productsWithRecipe.forEach(prod => {
+      const fillSel = document.getElementById(`bw-fill-${prod.id}`);
+      let fillMl = parseFloat(fillSel?.value) || 180;
+      if (fillSel?.value === 'custom') {
+        fillMl = parseFloat(document.getElementById(`bw-fill-custom-${prod.id}`)?.value) || 180;
+      }
       days.forEach((day, d) => {
         const val = parseFloat(document.getElementById(`bw-${prod.id}-${d}`)?.value) || 0;
-        if (val > 0) entries.push({ prod, liters: val, dayLabel: day });
+        if (val > 0) entries.push({ prod, liters: val, fillMl, dayLabel: day });
       });
     });
   }
@@ -2050,12 +2113,13 @@ function calcBrewPlan() {
   // Per-day summary for week mode
   const dayTotals = {}; // dayLabel -> { cups, cost, revenue }
 
-  entries.forEach(({ prod, liters, dayLabel }) => {
+  entries.forEach(({ prod, liters, fillMl, dayLabel }) => {
     const batchVolMl = prod.batchVolume || 1000;
     const batchYield = prod.batchYield || 1;
-    const cupSizeMl = prod.cupSizeMl || (batchVolMl / batchYield);
+    // fillMl = actual drink liquid per cup (excludes ice/boba space)
+    const liquidPerCup = fillMl || prod.cupSizeMl || (batchVolMl / batchYield);
     const volMl = liters * 1000;
-    const cups = volMl / cupSizeMl;
+    const cups = volMl / liquidPerCup;
     const batchesNeeded = cups / batchYield;
     const avgPrice = SIZES.reduce((s,sz) => s + (prod.prices[sz]||0), 0) / SIZES.filter(sz => (prod.prices[sz]||0) > 0).length || 0;
     const dayRevenue = cups * avgPrice;
