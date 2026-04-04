@@ -838,3 +838,38 @@ input,select,textarea{font-family:var(--font-body);}
 .bp-stock-status{padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;}
 .bp-stock-ok{background:rgba(46,204,122,.08);border:1px solid rgba(46,204,122,.25);color:var(--green);}
 .bp-stock-warn{background:rgba(233,69,96,.08);border:1px solid rgba(233,69,96,.25);color:var(--red);}
+
+/* ══════════════════════════════════════════
+   RECIPE — Two-Part Builder
+══════════════════════════════════════════ */
+.recipe-section-wrap{display:flex;flex-direction:column;gap:8px;}
+.recipe-part{border-radius:12px;overflow:hidden;border:1px solid var(--border);}
+.recipe-part-header{display:flex;align-items:center;gap:10px;padding:10px 14px;}
+.brew-header{background:linear-gradient(135deg,rgba(212,137,26,.12),rgba(212,137,26,.04));}
+.cup-header{background:linear-gradient(135deg,rgba(78,168,222,.12),rgba(78,168,222,.04));}
+.recipe-part-icon{font-size:20px;}
+.recipe-part-title{font-size:13px;font-weight:700;color:var(--text);}
+.recipe-part-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+.recipe-part-body{padding:10px 12px;background:var(--card);display:flex;flex-direction:column;gap:7px;}
+.recipe-rows{display:flex;flex-direction:column;gap:6px;}
+.recipe-add-btn{background:none;border:1.5px dashed var(--border);border-radius:8px;
+  padding:7px;color:var(--muted);font-size:12px;cursor:pointer;width:100%;
+  font-family:var(--font-body);transition:all .15s;}
+.recipe-add-btn:hover{border-color:var(--accent);color:var(--accent);}
+.brew-vol-row{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 10px;background:var(--card2);border-radius:8px;margin-top:2px;}
+.brew-vol-label{font-size:11px;color:var(--muted);}
+.recipe-vol-inp{font-size:14px!important;font-weight:700!important;}
+
+.recipe-yield-box{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  background:var(--card2);border-radius:10px;border:1px solid var(--border);}
+.recipe-yield-icon{font-size:18px;}
+.recipe-yield-text{font-size:12px;color:var(--muted);}
+
+.recipe-cost-box{background:var(--card2);border-radius:10px;padding:12px;
+  border:1px solid var(--border);}
+.recipe-cost-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.recipe-cost-item{text-align:center;}
+.recipe-cost-total{border-left:1px solid var(--border);}
+.recipe-cost-lbl{font-size:10px;color:var(--muted);margin-bottom:3px;}
+.recipe-cost-val{font-size:14px;font-weight:700;color:var(--text);}
