@@ -2230,7 +2230,7 @@ function calcBrewPlan() {
 Object.assign(window, {
   renderProductsMgmt, showAddProductModal, saveNewProduct,
   addRecipeRow, updateRecipeCost, buildRecipeSection, getRecipeRowsFromWrap,
-  showBrewPlanner, closeBrewPlanner, calcBrewPlan, calcBatchYield, setBrewMode, addBrewRow,
+  showBrewPlanner, closeBrewPlanner, calcBrewPlan, setBrewMode, addBrewRow,
   showEditProductModal, saveEditProduct, toggleProductActive,
   confirmDeleteProduct, deleteProduct, selectEmoji, selectColor,
   showCustomerDetail, redeemPoints, renderCustomerCards,
