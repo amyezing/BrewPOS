@@ -522,7 +522,11 @@ function renderProductGrid() {
            onclick="addToCart(${p.id})" style="border-color:${inCart ? p.color : 'transparent'}">
         <div class="prod-top-bar" style="background:${p.color}"></div>
         ${inCart ? `<div class="prod-badge" style="background:${p.color}">${inCart.qty}</div>` : ''}
-        <div class="prod-emoji">${p.emoji}</div>
+        <div class="prod-emoji">
+          ${p.image
+            ? `<img src="${p.image}" style="width:40px;height:40px;object-fit:cover;border-radius:10px;"/>`
+            : p.emoji}
+        </div>
         <div class="prod-name">${p.name}</div>
         <div class="prod-cat">${p.cat}</div>
         <div class="prod-price" style="color:${p.color||'var(--accent)'};">${peso(price)}</div>
@@ -2233,6 +2237,7 @@ Object.assign(window, {
   showBrewPlanner, closeBrewPlanner, calcBrewPlan, setBrewMode, addBrewRow,
   showEditProductModal, saveEditProduct, toggleProductActive,
   confirmDeleteProduct, deleteProduct, selectEmoji, selectColor,
+  uploadProductImage, removeProductImage,
   showCustomerDetail, redeemPoints, renderCustomerCards,
   saveSettings, toggleSetting, togglePinEnabled, togglePinVisibility,
   pinKey, lockApp, showPinModal, onCashInput, clearCashIn, updateChange,
@@ -2352,7 +2357,11 @@ function renderProductsMgmt(container) {
         ${filtered.map(p => `
           <div class="mgmt-card" style="border-top:3px solid ${p.color||'var(--accent)'};">
             <div class="mgmt-card-top">
-              <span class="mgmt-emoji-big">${p.emoji}</span>
+              <span class="mgmt-emoji-big">
+                ${p.image
+                  ? `<img src="${p.image}" style="width:36px;height:36px;object-fit:cover;border-radius:8px;"/>`
+                  : p.emoji}
+              </span>
               <div style="flex:1;min-width:0;">
                 <div class="mgmt-name">${p.name}</div>
                 <div class="mgmt-cat">${p.cat}</div>
@@ -2593,6 +2602,45 @@ function buildRecipeSection(prefix, existingBrew=[], existingCup=[], brewVol='',
 
 
 
+function uploadProductImage(prefix, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) return toast('Image too large (max 2MB)', 'error');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const preview = document.getElementById(prefix+'-icon-preview');
+    if (preview) {
+      preview.innerHTML = `<img src="${e.target.result}" style="width:50px;height:50px;object-fit:cover;border-radius:10px;"/>`;
+    }
+    const removeBtn = document.getElementById(prefix+'-img-remove');
+    if (removeBtn) removeBtn.style.display = 'inline-flex';
+    // Store image data
+    window._productImages = window._productImages || {};
+    window._productImages[prefix] = e.target.result;
+    // Clear emoji input styling
+    const emojiInp = document.getElementById(prefix+'-emoji');
+    if (emojiInp) emojiInp.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeProductImage(prefix) {
+  window._productImages = window._productImages || {};
+  delete window._productImages[prefix];
+  const preview = document.getElementById(prefix+'-icon-preview');
+  const emojiVal = document.getElementById(prefix+'-emoji')?.value || '🧋';
+  if (preview) {
+    preview.innerHTML = `<input class="modal-inp" id="${prefix}-emoji" value="${emojiVal}"
+      style="width:54px;text-align:center;font-size:22px;margin:0;border:none;background:none;padding:0;"/>`;
+  }
+  const removeBtn = document.getElementById(prefix+'-img-remove');
+  if (removeBtn) removeBtn.style.display = 'none';
+}
+
+function getProductImage(prefix) {
+  return window._productImages?.[prefix] || null;
+}
+
 function showAddProductModal() {
   showModal(`
     <div class="modal-title">+ Add Product</div>
@@ -2609,13 +2657,25 @@ function showAddProductModal() {
         </datalist>
       </div>
     </div>
-    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:4px;">
-      <div>
-        <div class="modal-label">Emoji</div>
-        <input class="modal-inp" id="np-emoji" value="🧋" style="width:64px;text-align:center;font-size:20px;margin:0;"/>
+    <div class="modal-label">Icon</div>
+    <div class="prod-icon-row">
+      <div class="prod-icon-preview" id="np-icon-preview">
+        <input class="modal-inp" id="np-emoji" value="🧋"
+          style="width:54px;text-align:center;font-size:22px;margin:0;border:none;background:none;padding:0;"/>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1;max-height:60px;overflow-y:auto;">
-        ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:16px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;padding:2px 6px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+      <div style="flex:1;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;max-height:52px;overflow-y:auto;margin-bottom:4px;">
+          ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:15px;background:var(--card);border:1.5px solid var(--border);border-radius:6px;padding:2px 5px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="file" id="np-img-inp" accept="image/*" style="display:none"
+            onchange="uploadProductImage('np',this)"/>
+          <button class="prod-img-btn" onclick="document.getElementById('np-img-inp').click()">
+            📷 Upload Photo
+          </button>
+          <button class="prod-img-btn prod-img-remove" id="np-img-remove" style="display:none"
+            onclick="removeProductImage('np')">✕ Remove</button>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
@@ -2647,7 +2707,8 @@ async function saveNewProduct() {
     id: allIds.length > 0 ? Math.max(...allIds) + 1 : 100,
     name,
     cat: document.getElementById('np-cat').value.trim() || 'Other',
-    emoji: document.getElementById('np-emoji').value || '🧋',
+    emoji: document.getElementById('np-emoji')?.value || '🧋',
+    image: getProductImage('np') || null,
     color: document.getElementById('np-color').value || '#f5a623',
     prices,
     active: true,
@@ -2659,6 +2720,7 @@ async function saveNewProduct() {
   };
   await DB.put('products', prod);
   STATE.products.push(prod);
+  window._productImages = {};
   closeModal();
   toast(prod.emoji + ' ' + prod.name + ' added!');
   renderView();
@@ -2687,15 +2749,30 @@ function showEditProductModal(prodId) {
         </datalist>
       </div>
     </div>
-    <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:4px;">
-      <div>
-        <div class="modal-label">Emoji</div>
-        <input class="modal-inp" id="ep-emoji" value="${p.emoji}" style="width:64px;text-align:center;font-size:20px;margin:0;"/>
+    <div class="modal-label">Icon</div>
+    <div class="prod-icon-row">
+      <div class="prod-icon-preview" id="ep-icon-preview">
+        ${p.image
+          ? `<img src="${p.image}" id="ep-img-thumb" style="width:50px;height:50px;object-fit:cover;border-radius:10px;"/>`
+          : `<input class="modal-inp" id="ep-emoji" value="${p.emoji}" style="width:54px;text-align:center;font-size:22px;margin:0;border:none;background:none;padding:0;"/>`}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;flex:1;max-height:56px;overflow-y:auto;">
-        ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:16px;background:var(--card);border:1.5px solid ${e===p.emoji?'var(--accent)':'var(--border)'};border-radius:6px;padding:2px 6px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+      <div style="flex:1;">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;max-height:52px;overflow-y:auto;margin-bottom:4px;">
+          ${EMOJI_OPTIONS.map(e=>`<button onclick="selectEmoji('${e}')" style="font-size:15px;background:var(--card);border:1.5px solid ${e===p.emoji?'var(--accent)':'var(--border)'};border-radius:6px;padding:2px 5px;cursor:pointer;" class="emoji-opt">${e}</button>`).join('')}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="file" id="ep-img-inp" accept="image/*" style="display:none"
+            onchange="uploadProductImage('ep',this)"/>
+          <button class="prod-img-btn" onclick="document.getElementById('ep-img-inp').click()">
+            📷 ${p.image ? 'Change Photo' : 'Upload Photo'}
+          </button>
+          <button class="prod-img-btn prod-img-remove" id="ep-img-remove"
+            style="${p.image ? '' : 'display:none'}"
+            onclick="removeProductImage('ep')">✕ Remove</button>
+        </div>
       </div>
     </div>
+    ${!p.image ? '' : ''}<input type="hidden" id="ep-emoji" value="${p.emoji}"/>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
       ${COLOR_OPTIONS.map(c=>`<button onclick="selectColor('${c}')" style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${c===p.color?'#fff':'transparent'};cursor:pointer;" class="color-opt" data-color="${c}"></button>`).join('')}
       <input class="modal-inp" id="ep-color" value="${p.color||'#f5a623'}" placeholder="#hex" style="width:90px;margin:0;font-size:11px;"/>
@@ -2725,7 +2802,9 @@ async function saveEditProduct(prodId) {
   if (!p) return;
   p.name   = document.getElementById('ep-name').value.trim() || p.name;
   p.cat    = document.getElementById('ep-cat').value.trim() || p.cat;
-  p.emoji  = document.getElementById('ep-emoji').value || p.emoji;
+  p.emoji  = document.getElementById('ep-emoji')?.value || p.emoji;
+  const epImg = getProductImage('ep'); if (epImg) p.image = epImg;
+  if (document.getElementById('ep-img-remove')?.style.display === 'none' && !epImg) p.image = null;
   p.color  = document.getElementById('ep-color').value || p.color;
   SIZES.forEach(s => { p.prices[s] = Number(document.getElementById('ep-price-' + s).value) || 0; });
   p.brewRecipe = getRecipeRowsFromWrap('ep-brew-rows');
@@ -2736,6 +2815,7 @@ async function saveEditProduct(prodId) {
   await DB.put('products', p);
   const idx = STATE.products.findIndex(x => x.id === prodId);
   if (idx >= 0) STATE.products[idx] = { ...p };
+  window._productImages = {};
   closeModal();
   toast(p.emoji + ' ' + p.name + ' updated ✓');
   renderView();
