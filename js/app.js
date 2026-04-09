@@ -2610,16 +2610,13 @@ function uploadProductImage(prefix, input) {
   reader.onload = function(e) {
     const preview = document.getElementById(prefix+'-icon-preview');
     if (preview) {
-      preview.innerHTML = `<img src="${e.target.result}" style="width:50px;height:50px;object-fit:cover;border-radius:10px;"/>`;
+      preview.innerHTML = `<img src="${e.target.result}" id="${prefix}-img-thumb" style="width:50px;height:50px;object-fit:cover;border-radius:10px;"/>`;
     }
     const removeBtn = document.getElementById(prefix+'-img-remove');
     if (removeBtn) removeBtn.style.display = 'inline-flex';
     // Store image data
     window._productImages = window._productImages || {};
     window._productImages[prefix] = e.target.result;
-    // Clear emoji input styling
-    const emojiInp = document.getElementById(prefix+'-emoji');
-    if (emojiInp) emojiInp.style.display = 'none';
   };
   reader.readAsDataURL(file);
 }
@@ -2803,8 +2800,13 @@ async function saveEditProduct(prodId) {
   p.name   = document.getElementById('ep-name').value.trim() || p.name;
   p.cat    = document.getElementById('ep-cat').value.trim() || p.cat;
   p.emoji  = document.getElementById('ep-emoji')?.value || p.emoji;
-  const epImg = getProductImage('ep'); if (epImg) p.image = epImg;
-  if (document.getElementById('ep-img-remove')?.style.display === 'none' && !epImg) p.image = null;
+  const epImg = getProductImage('ep');
+  if (epImg) {
+    p.image = epImg; // new image uploaded
+  } else if (document.getElementById('ep-img-remove')?.style.display === 'none' && document.getElementById('ep-img-thumb')) {
+    p.image = null; // explicitly removed
+  }
+  // Otherwise keep existing p.image unchanged
   p.color  = document.getElementById('ep-color').value || p.color;
   SIZES.forEach(s => { p.prices[s] = Number(document.getElementById('ep-price-' + s).value) || 0; });
   p.brewRecipe = getRecipeRowsFromWrap('ep-brew-rows');
