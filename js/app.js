@@ -509,7 +509,18 @@ function renderProductGrid() {
     p.name.toLowerCase().includes(STATE.search.toLowerCase())
   );
   if (products.length === 0) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">No products found</div>`;
+    const isSearch = STATE.search.length > 0;
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:48px 20px;">
+        <div style="font-size:48px;margin-bottom:12px;">${isSearch ? '🔍' : '🧋'}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">
+          ${isSearch ? 'No products match "'+STATE.search+'"' : 'No products yet'}
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          ${isSearch ? 'Try a different search term' : 'Add your first product to start taking orders'}
+        </div>
+        ${!isSearch ? `<button onclick="setView('products')" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;">+ Add Product</button>` : ''}
+      </div>`;
     return;
   }
   grid.innerHTML = products.map(p => {
@@ -1143,7 +1154,12 @@ function renderOrders(container) {
         <button class="filter-chip ${STATE.ordersDateFilter==='all'?'active':''}"
           onclick="STATE.ordersDateFilter='all';renderView()">All</button>
       </div>
-      ${filtered.length === 0 ? '<div style="text-align:center;padding:40px;color:var(--muted)">No orders found</div>' : ''}
+      ${filtered.length === 0 ? `
+        <div style="text-align:center;padding:48px 20px;">
+          <div style="font-size:48px;margin-bottom:12px;">🧾</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">No orders yet</div>
+          <div style="font-size:13px;color:var(--muted);">Orders will appear here after your first sale</div>
+        </div>` : ''}
       ${filtered.map(o => `
         <div class="order-card" onclick="showOrderDetail(${o.id})">
           <div class="order-card-top">
@@ -1241,6 +1257,12 @@ function renderInventory(container) {
         <button onclick="showAddIngredientModal()" style="margin-left:auto;background:var(--accent);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">+ Add</button>
       </div>
       <div class="inv-grid">
+        ${STATE.ingredients.filter(i => STATE.invTab==='All' || i.cat===STATE.invTab).length === 0 ? `
+          <div style="grid-column:1/-1;text-align:center;padding:48px 20px;">
+            <div style="font-size:48px;margin-bottom:12px;">📦</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">No ingredients yet</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Add your first ingredient to start tracking inventory</div>
+          </div>` : ''}
         ${STATE.ingredients.filter(i => STATE.invTab==='All' || i.cat===STATE.invTab).map(ing => {
           const pct = Math.min(100, (ing.stock / (ing.reorder * 3)) * 100);
           const statusClass = ing.stock <= 0 ? 'out' : ing.stock <= ing.reorder ? 'low' : '';
@@ -1424,7 +1446,12 @@ function renderCustomerCards(search) {
 }
 
 function renderCustomerGrid(custs) {
-  if (custs.length === 0) return '<div style="color:var(--muted);padding:40px;text-align:center">No customers yet</div>';
+  if (custs.length === 0) return `
+    <div style="text-align:center;padding:48px 20px;">
+      <div style="font-size:48px;margin-bottom:12px;">👥</div>
+      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">No customers yet</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Customer profiles are created when you look up a phone number at checkout</div>
+    </div>`;
   return custs.map(c => {
     const pts = c.loyaltyPoints || 0;
     const nextReward = STATE.settings.loyaltyRedeem * 100;
@@ -1724,9 +1751,15 @@ function renderSettings(container) {
         </div>` : ''}
       </div>
 
-      <div style="display:flex;gap:10px;margin-top:8px;">
+      <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
         <button class="btn-save" onclick="saveSettings()">💾 Save Settings</button>
         <button class="btn-danger" onclick="confirmClearData()">🗑️ Clear All Data</button>
+      </div>
+      <div style="margin-top:16px;padding:12px 14px;background:var(--card);border-radius:10px;
+        border:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center;">
+        BrewPOS v1.0.0 · All data stored locally on this device only ·
+        <a href="/BrewPOS/privacy-policy.html" target="_blank"
+          style="color:var(--accent);text-decoration:none;">Privacy Policy</a>
       </div>
     </div>
   `;
