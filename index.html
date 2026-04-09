@@ -3,12 +3,21 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
-<meta name="theme-color" content="#f5a623"/>
+<meta name="theme-color" content="#0d0d14"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BrewPOS"/>
-<title>BrewPOS</title>
+<!-- Hide browser UI when launched as installed app -->
+<meta name="application-name" content="BrewPOS"/>
+<meta name="msapplication-starturl" content="/BrewPOS/"/>
+<meta name="msapplication-navbutton-color" content="#0d0d14"/>
+<title>BrewPOS — Café & Bubble Tea POS</title>
+<meta name="description" content="Fast, offline-ready point-of-sale app for bubble tea shops and cafés. Manage orders, kitchen display, inventory, GCash/Maya payments, and loyalty points."/>
+<meta name="keywords" content="pos, point of sale, bubble tea, cafe, milk tea, cashier, gcash, maya, offline"/>
+<meta property="og:title" content="BrewPOS — Café & Bubble Tea POS"/>
+<meta property="og:description" content="The complete POS for bubble tea shops and cafés. Works offline."/>
+<meta property="og:image" content="/BrewPOS/icons/icon-512.png"/>
 <link rel="manifest" href="/BrewPOS/manifest.json"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
@@ -25,6 +34,7 @@
 </div>
 <script src="js/db.js"></script>
 <script src="js/data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="js/app.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
