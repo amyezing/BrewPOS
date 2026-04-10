@@ -26,6 +26,34 @@
   --bottomnav-h: 0px;
 }
 
+/* ── LIGHT / DAY THEME ── */
+[data-theme="light"] {
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --card: #f0efe9;
+  --card2: #e8e7e0;
+  --border: #d4d2c8;
+  --accent: #c07810;
+  --accent2: #a06010;
+  --accent-soft: rgba(192,120,16,0.12);
+  --green: #1a9e5a;
+  --red: #d63050;
+  --blue: #2878c0;
+  --purple: #7c5fe0;
+  --pink: #d44090;
+  --text: #1a1a24;
+  --muted: #7a7870;
+  --muted2: #a8a89a;
+  --input: #ffffff;
+  --kitchen: #e8f0f8;
+  --shadow: 0 4px 20px rgba(0,0,0,.12);
+}
+[data-theme="light"] #splash { background: var(--bg); }
+[data-theme="light"] .prod-card { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+[data-theme="light"] .modal { box-shadow: 0 8px 40px rgba(0,0,0,.15); }
+[data-theme="light"] .bp-panel { box-shadow: 0 0 60px rgba(0,0,0,.15); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: #ccc; }
+
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{height:100%;height:100dvh;overflow:hidden;background:var(--bg);}
 body{height:100%;height:100dvh;overflow:hidden;font-family:var(--font-body);color:var(--text);font-size:14px;
