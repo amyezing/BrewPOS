@@ -206,7 +206,7 @@ async function loadAll() {
     STATE.settings[k] = v;
   }
   // Also load any extra keys saved in DB not in DEFAULT_SETTINGS (gcashQR, mayaQR, bankQR, customSizes)
-  const extraKeys = ['gcashQR', 'mayaQR', 'bankQR', 'customSizes', 'mayaNumber', 'mayaName'];
+  const extraKeys = ['gcashQR', 'mayaQR', 'bankQR', 'customSizes', 'mayaNumber', 'mayaName', 'theme'];
   for (const k of extraKeys) {
     if (!(k in STATE.settings) || !STATE.settings[k]) {
       const v = await DB.getSetting(k, '');
@@ -561,10 +561,12 @@ function renderProductGrid() {
 
 function checkStock(product) {
   // Quick check if any key ingredient is out
-  if (!product.recipe || product.recipe.length === 0) return 'ok';
-  for (const r of [...(product.brewRecipe||product.recipe||[]),...(product.cupRecipe||[])]) {
+  const allRecipe = [...(product.brewRecipe||product.recipe||[]),...(product.cupRecipe||[])];
+  if (allRecipe.length === 0) return 'ok';
+  for (const r of allRecipe) {
     const ing = STATE.ingredients.find(i => i.id === r.ingId);
     if (ing && ing.stock <= 0) return 'out';
+    // For brew recipe, check if there's enough for at least one batch
     if (ing && ing.stock < r.qty) return 'low';
   }
   return 'ok';
@@ -977,6 +979,14 @@ async function checkout() {
   STATE.discount = 0;
   STATE.customerPhone = '';
   STATE.foundCustomer = null;
+
+  // Clear DOM inputs
+  const custPhoneInp = document.getElementById('cust-phone');
+  if (custPhoneInp) custPhoneInp.value = '';
+  const cashInp = document.getElementById('cash-in');
+  if (cashInp) cashInp.value = '';
+  const clrBtn = document.getElementById('cash-clear-btn');
+  if (clrBtn) clrBtn.style.display = 'none';
 
   updateTopbar();
   renderCartItems();
@@ -1883,6 +1893,7 @@ async function saveSettings() {
   STATE.settings.gcashNumber = $('s-gcash').value;
   STATE.settings.gcashName = $('s-gcash-name').value;
   STATE.settings.mayaNumber = $('s-maya') ? $('s-maya').value : STATE.settings.mayaNumber;
+  STATE.settings.mayaName = $('s-maya-name') ? $('s-maya-name').value : STATE.settings.mayaName;
   STATE.settings.mayaName = $('s-maya-name') ? $('s-maya-name').value : STATE.settings.mayaName;
   STATE.settings.bankName = $('s-bank').value;
   STATE.settings.bankAccount = $('s-bank-acc').value;
