@@ -69,6 +69,7 @@ window.DEFAULT_SETTINGS = {
   mayaQR: '',
   bankQR: '',
   customSizes: '',
+  theme: 'dark',
   taxRate: 0,
   loyaltyRate: 1,       // pts per peso
   loyaltyRedeem: 100,   // pts = ₱1
