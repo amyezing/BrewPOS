@@ -213,6 +213,8 @@ async function loadAll() {
       if (v) STATE.settings[k] = v;
     }
   }
+  // Apply theme immediately
+  applyTheme(STATE.settings.theme || 'dark');
   // Apply custom sizes IMMEDIATELY after loading so SIZES/SIZE_LABELS are correct before render
   if (STATE.settings.customSizes) {
     try {
@@ -232,6 +234,13 @@ function renderApp() {
   app.innerHTML = `
     <div id="topbar">
       <span class="tb-logo">☕ ${STATE.settings.storeName || 'BrewPOS'}</span>
+      <button id="theme-toggle-btn" onclick="toggleTheme()"
+        style="background:var(--card);border:1px solid var(--border);border-radius:8px;
+        padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;
+        font-family:var(--font-body);flex-shrink:0;transition:all .2s;"
+        title="Toggle dark/light mode">
+        ${STATE.settings.theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
+      </button>
       <span class="tb-date" id="tb-date">${dateLabel(todayStr())}</span>
       <nav class="tb-nav">
         <button class="tb-btn ${STATE.view==='pos'?'active':''}" onclick="setView('pos')">🛒 POS</button>
@@ -1714,6 +1723,34 @@ function renderSettings(container) {
       </div>
 
       <div class="settings-section">
+        <div class="settings-title">🎨 Appearance</div>
+        <div class="setting-row">
+          <div>
+            <div class="setting-lbl">Theme</div>
+            <div class="setting-sub">Switch between dark and light mode</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button onclick="applyTheme('dark');DB.setSetting('theme','dark');"
+              style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;
+              cursor:pointer;font-family:var(--font-body);transition:all .15s;
+              background:${STATE.settings.theme!=='light'?'var(--accent)':'var(--card)'};
+              color:${STATE.settings.theme!=='light'?'#fff':'var(--muted)'};
+              border:1.5px solid ${STATE.settings.theme!=='light'?'var(--accent)':'var(--border)'};">
+              🌙 Dark
+            </button>
+            <button onclick="applyTheme('light');DB.setSetting('theme','light');"
+              style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;
+              cursor:pointer;font-family:var(--font-body);transition:all .15s;
+              background:${STATE.settings.theme==='light'?'var(--accent)':'var(--card)'};
+              color:${STATE.settings.theme==='light'?'#fff':'var(--muted)'};
+              border:1.5px solid ${STATE.settings.theme==='light'?'var(--accent)':'var(--border)'};">
+              ☀️ Light
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <div class="settings-title">⚙️ POS Options</div>
         <div class="setting-row">
           <div><div class="setting-lbl">Auto-deduct inventory on sale</div></div>
@@ -1782,6 +1819,20 @@ function togglePinEnabled() {
 function togglePinVisibility() {
   const inp = $('s-pin');
   if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+  STATE.settings.theme = theme;
+  // Update toggle button if visible
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode';
+}
+
+function toggleTheme() {
+  const newTheme = STATE.settings.theme === 'light' ? 'dark' : 'light';
+  applyTheme(newTheme);
+  DB.setSetting('theme', newTheme);
 }
 
 function applySizes(sizes) {
@@ -2272,7 +2323,7 @@ Object.assign(window, {
   confirmDeleteProduct, deleteProduct, selectEmoji, selectColor,
   uploadProductImage, removeProductImage,
   showCustomerDetail, redeemPoints, renderCustomerCards,
-  saveSettings, toggleSetting, togglePinEnabled, togglePinVisibility,
+  saveSettings, toggleSetting, togglePinEnabled, togglePinVisibility, toggleTheme, applyTheme,
   pinKey, lockApp, showPinModal, onCashInput, clearCashIn, updateChange,
   confirmClearData, clearAllData,
   closeModal,
