@@ -1118,9 +1118,9 @@ function renderKitchenCard(k) {
             <span class="kd-item-qty">×${item.qty}</span>
           </div>`).join('')}
       </div>
-      <div class="kd-actions">
-        <button class="kd-done-btn" onclick="kitchenDone(${k.orderId})">✓ Done</button>
-        <button class="kd-bump-btn" onclick="kitchenBump(${k.orderId})">Bump</button>
+      <div class="kd-actions" onclick="event.stopPropagation()">
+        <button class="kd-done-btn" onclick="event.stopPropagation();kitchenDone(${k.orderId})">✓ Done</button>
+        <button class="kd-bump-btn" onclick="event.stopPropagation();kitchenBump(${k.orderId})">↓ Bump</button>
       </div>
     </div>
   `;
