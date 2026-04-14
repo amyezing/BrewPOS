@@ -1136,8 +1136,12 @@ function renderKitchenCard(k) {
 }
 
 function toggleKitchenItem(orderId, idx) {
-  const el1 = $(`kdi-${orderId}-${idx}`);
-  if (el1) el1.querySelector('.kd-item-name').classList.toggle('kd-item-done');
+  const el = document.querySelector(
+    `.kd-item[data-order-id="${orderId}"][data-idx="${idx}"]`
+  );
+  if (el) {
+    el.querySelector('.kd-item-name').classList.toggle('kd-item-done');
+  }
 }
 
 async function kitchenDone(orderId) {
@@ -1156,6 +1160,37 @@ async function kitchenBump(orderId) {
   await DB.delete('kitchen', orderId);
   renderView();
 }
+
+document.addEventListener('click', async (e) => {
+  const doneBtn = e.target.closest('.kd-done-btn');
+  const bumpBtn = e.target.closest('.kd-bump-btn');
+  const item = e.target.closest('.kd-item');
+
+  if (doneBtn) {
+    e.stopPropagation();
+    const orderId = Number(doneBtn.dataset.orderId);
+    await kitchenDone(orderId);
+    return;
+  }
+
+  if (bumpBtn) {
+    e.stopPropagation();
+    const orderId = Number(bumpBtn.dataset.orderId);
+    await kitchenBump(orderId);
+    return;
+  }
+
+  if (item) {
+    const orderId = Number(item.dataset.orderId);
+    const idx = Number(item.dataset.idx);
+    toggleKitchenItem(orderId, idx);
+    return;
+  }
+});
+
+
+// ✅ then your app bootstraps
+renderView();
 
 // ── ORDERS VIEW ───────────────────────────────────────────────────────────────
 function renderOrders(container) {
