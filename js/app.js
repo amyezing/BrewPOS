@@ -1093,6 +1093,22 @@ function renderKitchen(container) {
     const clk = $('kd-clock');
     if (clk) clk.textContent = new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }, 1000);
+
+  // Delegated click handler — single source of truth for Done/Bump
+  const queue = document.getElementById('kitchen');
+  if (queue) {
+    queue.addEventListener('click', function(e) {
+      const doneBtn = e.target.closest('.kd-done-btn');
+      const bumpBtn = e.target.closest('.kd-bump-btn');
+      if (doneBtn) {
+        e.stopPropagation();
+        kitchenDone(parseInt(doneBtn.dataset.orderId));
+      } else if (bumpBtn) {
+        e.stopPropagation();
+        kitchenBump(parseInt(bumpBtn.dataset.orderId));
+      }
+    });
+  }
 }
 
 function renderKitchenCard(k) {
@@ -1120,10 +1136,10 @@ function renderKitchenCard(k) {
           </div>`).join('')}
       </div>
       <div class="kd-actions">
-        <button class="kd-done-btn" onclick="kitchenDone(${k.orderId});event.stopPropagation();">
+        <button class="kd-done-btn" data-order-id="${k.orderId}">
           ✓ Done
         </button>
-        <button class="kd-bump-btn" onclick="kitchenBump(${k.orderId});event.stopPropagation();">
+        <button class="kd-bump-btn" data-order-id="${k.orderId}">
           ↓ Bump
         </button>
       </div>
@@ -1152,37 +1168,6 @@ async function kitchenBump(orderId) {
   await DB.delete('kitchen', orderId);
   renderView();
 }
-
-document.addEventListener('click', async (e) => {
-  const doneBtn = e.target.closest('.kd-done-btn');
-  const bumpBtn = e.target.closest('.kd-bump-btn');
-  const item = e.target.closest('.kd-item');
-
-  if (doneBtn) {
-    e.stopPropagation();
-    const orderId = Number(doneBtn.dataset.orderId);
-    await kitchenDone(orderId);
-    return;
-  }
-
-  if (bumpBtn) {
-    e.stopPropagation();
-    const orderId = Number(bumpBtn.dataset.orderId);
-    await kitchenBump(orderId);
-    return;
-  }
-
-  if (item) {
-    const orderId = Number(item.dataset.orderId);
-    const idx = Number(item.dataset.idx);
-    toggleKitchenItem(orderId, idx);
-    return;
-  }
-});
-
-
-// ✅ then your app bootstraps
-renderView();
 
 // ── ORDERS VIEW ───────────────────────────────────────────────────────────────
 function renderOrders(container) {
