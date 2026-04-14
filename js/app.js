@@ -1110,8 +1110,7 @@ function renderKitchenCard(k) {
       <div class="kd-items">
         ${k.items.map((item,idx) => `
           <div class="kd-item" id="kdi-${k.orderId}-${idx}"
-            ontouchend="event.preventDefault();event.stopPropagation();toggleKitchenItem(${k.orderId},${idx})"
-            onclick="event.stopPropagation();toggleKitchenItem(${k.orderId},${idx})">
+            onclick="toggleKitchenItem(${k.orderId},${idx});event.stopPropagation();">
             <span class="kd-item-emoji">${item.emoji}</span>
             <div class="kd-item-info">
               <div class="kd-item-name">${item.name}</div>
@@ -1121,16 +1120,10 @@ function renderKitchenCard(k) {
           </div>`).join('')}
       </div>
       <div class="kd-actions">
-        <button class="kd-done-btn"
-          ontouchstart="event.stopPropagation();"
-          ontouchend="event.preventDefault();event.stopPropagation();kitchenDone(${k.orderId});"
-          onclick="event.stopPropagation();">
+        <button class="kd-done-btn" onclick="kitchenDone(${k.orderId});event.stopPropagation();">
           ✓ Done
         </button>
-        <button class="kd-bump-btn"
-          ontouchstart="event.stopPropagation();"
-          ontouchend="event.preventDefault();event.stopPropagation();kitchenBump(${k.orderId});"
-          onclick="event.stopPropagation();">
+        <button class="kd-bump-btn" onclick="kitchenBump(${k.orderId});event.stopPropagation();">
           ↓ Bump
         </button>
       </div>
