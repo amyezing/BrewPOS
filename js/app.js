@@ -1098,36 +1098,32 @@ function renderKitchen(container) {
 function renderKitchenCard(k) {
   const mins = Math.floor((Date.now() - k.startedAt) / 60000);
   const cls = k.status === 'new' ? 'kd-new' : '';
-
   return `
-    <div class="kd-card ${cls}" id="kd-${k.orderId}" data-order-id="${k.orderId}">
+    <div class="kd-card ${cls}" id="kd-${k.orderId}">
       <div class="kd-card-hdr">
         <span class="kd-order-num">#${k.orderId}</span>
         ${k.customerName ? `<span style="font-size:10px;color:#4a8ab0">${k.customerName}</span>` : ''}
         <span class="kd-time-chip">${k.time}</span>
-        <span class="kd-elapsed ${mins>=10?'urgent':mins>=5?'warn':''}">${mins}m</span>
+        <span class="kd-elapsed ${mins>=10?'urgent':mins>=5?'warn':''}" data-order-id="${k.orderId}">${mins}m</span>
       </div>
-
       ${k.customerName ? `<div class="kd-customer">${k.customerName}</div>` : ''}
-
       <div class="kd-items">
-        ${k.items.map((item, idx) => `
-          <div class="kd-item" data-order-id="${k.orderId}" data-idx="${idx}">
+        ${k.items.map((item,idx) => `
+          <div class="kd-item" id="kdi-${k.orderId}-${idx}"
+            onclick="toggleKitchenItem(${k.orderId},${idx});event.stopPropagation();">
             <span class="kd-item-emoji">${item.emoji}</span>
             <div class="kd-item-info">
               <div class="kd-item-name">${item.name}</div>
-              <div class="kd-item-meta">${SIZE_LABELS[item.size] || item.size}${item.note ? ' · ' + item.note : ''}</div>
+              <div class="kd-item-meta">${SIZE_LABELS[item.size] || item.size}${item.note?' · '+item.note:''}</div>
             </div>
             <span class="kd-item-qty">×${item.qty}</span>
-          </div>
-        `).join('')}
+          </div>`).join('')}
       </div>
-
       <div class="kd-actions">
-        <button class="kd-done-btn" data-order-id="${k.orderId}">
+        <button class="kd-done-btn" onclick="kitchenDone(${k.orderId});event.stopPropagation();">
           ✓ Done
         </button>
-        <button class="kd-bump-btn" data-order-id="${k.orderId}">
+        <button class="kd-bump-btn" onclick="kitchenBump(${k.orderId});event.stopPropagation();">
           ↓ Bump
         </button>
       </div>
