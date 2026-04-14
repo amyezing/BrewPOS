@@ -1136,12 +1136,8 @@ function renderKitchenCard(k) {
 }
 
 function toggleKitchenItem(orderId, idx) {
-  const el = document.querySelector(
-    `.kd-item[data-order-id="${orderId}"][data-idx="${idx}"]`
-  );
-  if (el) {
-    el.querySelector('.kd-item-name').classList.toggle('kd-item-done');
-  }
+  const el1 = $(`kdi-${orderId}-${idx}`);
+  if (el1) el1.querySelector('.kd-item-name').classList.toggle('kd-item-done');
 }
 
 async function kitchenDone(orderId) {
