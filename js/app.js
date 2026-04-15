@@ -1093,6 +1093,7 @@ function renderKitchen(container) {
     const clk = $('kd-clock');
     if (clk) clk.textContent = new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }, 1000);
+}
 
   // Delegated click handler — single source of truth for Done/Bump
   const queue = document.getElementById('kitchen');
@@ -1114,6 +1115,8 @@ function renderKitchen(container) {
 function renderKitchenCard(k) {
   const mins = Math.floor((Date.now() - k.startedAt) / 60000);
   const cls = k.status === 'new' ? 'kd-new' : '';
+  const bumpBadge = k.bumpCount > 0 ? `<span class="bump-badge">🔔 x${k.bumpCount}</span>` : '';
+  
   return `
     <div class="kd-card ${cls}" id="kd-${k.orderId}">
       <div class="kd-card-hdr">
@@ -1121,6 +1124,7 @@ function renderKitchenCard(k) {
         ${k.customerName ? `<span style="font-size:10px;color:#4a8ab0">${k.customerName}</span>` : ''}
         <span class="kd-time-chip">${k.time}</span>
         <span class="kd-elapsed ${mins>=10?'urgent':mins>=5?'warn':''}" data-order-id="${k.orderId}">${mins}m</span>
+        ${bumpBadge}
       </div>
       ${k.customerName ? `<div class="kd-customer">${k.customerName}</div>` : ''}
       <div class="kd-items">
@@ -1140,7 +1144,10 @@ function renderKitchenCard(k) {
           ✓ Done
         </button>
         <button class="kd-bump-btn" data-order-id="${k.orderId}">
-          ↓ Bump
+          ⏰ Bump
+        </button>
+        <button class="kd-delete-btn" data-order-id="${k.orderId}">
+          🗑️ Delete
         </button>
       </div>
     </div>
