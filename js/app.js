@@ -1088,8 +1088,16 @@ function renderKitchen(container) {
       </div>
     </div>
   `;
+  
+  // Live clock
+  setInterval(() => {
+    const clk = $('kd-clock');
+    if (clk) clk.textContent = new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }, 1000);
+}
 
-  document.addEventListener('click', async (e) => {
+// Global event delegation for kitchen buttons (single source of truth)
+document.addEventListener('click', async (e) => {
   const doneBtn = e.target.closest('.kd-done-btn');
   const bumpBtn = e.target.closest('.kd-bump-btn');
   const deleteBtn = e.target.closest('.kd-delete-btn');
@@ -1135,29 +1143,7 @@ function renderKitchen(container) {
     return;
   }
 });
-  // Live clock
-  setInterval(() => {
-    const clk = $('kd-clock');
-    if (clk) clk.textContent = new Date().toLocaleTimeString('en-PH',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  }, 1000);
-}
 
-  // Delegated click handler — single source of truth for Done/Bump
-  const queue = document.getElementById('kitchen');
-  if (queue) {
-    queue.addEventListener('click', function(e) {
-      const doneBtn = e.target.closest('.kd-done-btn');
-      const bumpBtn = e.target.closest('.kd-bump-btn');
-      if (doneBtn) {
-        e.stopPropagation();
-        kitchenDone(parseInt(doneBtn.dataset.orderId));
-      } else if (bumpBtn) {
-        e.stopPropagation();
-        kitchenBump(parseInt(bumpBtn.dataset.orderId));
-      }
-    });
-  }
-}
 
 function renderKitchenCard(k) {
   const mins = Math.floor((Date.now() - k.startedAt) / 60000);
