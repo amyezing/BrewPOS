@@ -1088,6 +1088,53 @@ function renderKitchen(container) {
       </div>
     </div>
   `;
+
+  document.addEventListener('click', async (e) => {
+  const doneBtn = e.target.closest('.kd-done-btn');
+  const bumpBtn = e.target.closest('.kd-bump-btn');
+  const deleteBtn = e.target.closest('.kd-delete-btn');
+  const item = e.target.closest('.kd-item');
+
+  if (doneBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    const orderId = Number(doneBtn.dataset.orderId);
+    await kitchenDone(orderId);
+    return;
+  }
+
+  if (bumpBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    const orderId = Number(bumpBtn.dataset.orderId);
+    
+    if (confirm(`Bump order #${orderId}? This will reset its timer and notify the kitchen.`)) {
+      await kitchenBump(orderId);
+    }
+    return;
+  }
+
+  if (deleteBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    const orderId = Number(deleteBtn.dataset.orderId);
+    
+    if (confirm(`⚠️ DELETE order #${orderId}?\n\nThis will permanently remove it from the kitchen queue. This action cannot be undone.`)) {
+      await kitchenDelete(orderId);
+    }
+    return;
+  }
+
+  if (item) {
+    e.stopPropagation();
+    const orderId = Number(item.closest('.kd-card')?.id?.replace('kd-', ''));
+    const idx = Number(item.dataset.idx);
+    if (!isNaN(orderId) && !isNaN(idx)) {
+      toggleKitchenItem(orderId, idx);
+    }
+    return;
+  }
+});
   // Live clock
   setInterval(() => {
     const clk = $('kd-clock');
@@ -1171,10 +1218,47 @@ async function kitchenDone(orderId) {
 async function kitchenBump(orderId) {
   const idx = STATE.kitchenQueue.findIndex(k => k.orderId === orderId);
   if (idx < 0) return;
-  STATE.kitchenQueue.splice(idx, 1);
-  await DB.delete('kitchen', orderId);
+  
+  // Reset the startedAt timer to give more time
+  STATE.kitchenQueue[idx].startedAt = Date.now();
+  STATE.kitchenQueue[idx].bumpCount = (STATE.kitchenQueue[idx].bumpCount || 0) + 1;
+  STATE.kitchenQueue[idx].lastBumpedAt = Date.now();
+  
+  await DB.put('kitchen', STATE.kitchenQueue[idx]);
+  
+  // Visual feedback - flash the card
+  const card = document.getElementById(`kd-${orderId}`);
+  if (card) {
+    card.style.transition = 'background 0.3s';
+    card.style.background = 'var(--orange)';
+    setTimeout(() => {
+      card.style.background = '';
+    }, 500);
+  }
+  
+  toast(`🔔 Order #${orderId} bumped - kitchen notified!`, 'warning', 2000);
   renderView();
 }
+
+async function kitchenDelete(orderId) {
+  const idx = STATE.kitchenQueue.findIndex(k => k.orderId === orderId);
+  if (idx < 0) return;
+  
+  // Remove from queue
+  STATE.kitchenQueue.splice(idx, 1);
+  await DB.delete('kitchen', orderId);
+  
+  // Optional: Also void the order in orders list
+  const order = STATE.orders.find(o => o.id === orderId);
+  if (order && order.status !== 'voided') {
+    order.status = 'voided';
+    await DB.put('orders', order);
+  }
+  
+  toast(`🗑️ Order #${orderId} deleted from kitchen`, 'error', 2000);
+  renderView();
+}
+
 
 // ── ORDERS VIEW ───────────────────────────────────────────────────────────────
 function renderOrders(container) {
